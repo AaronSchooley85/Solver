@@ -9,13 +9,21 @@ public:
 
 	Variable(int variableNumber);
 
-	void setValue(bool value, int level);
-	void getValue();
+	// Value.
+	void setValue(int level);
+	void setValue(int level, int literal);
+	int  getValue();
 
+	// Heap location.
 	void setHloc(bool b);
 	bool getHloc();
 
+	// Trail location.
+	void setTloc(int t);
+
 	int getActivity() const;
+
+	bool isFree();
 
 private:
 
