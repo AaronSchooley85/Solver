@@ -14,9 +14,19 @@ public:
 	void setValue(int level, int literal);
 	int  getValue();
 
+	// The current literal value.
+	int getCurrentLiteralValue();
+
+	// The reason for the variable value.
+	void setReason(int r);
+	int getReason();
+
 	// Heap location.
 	void setHloc(bool b);
 	bool getHloc();
+
+	// Add a clause number to a watch list.
+	void addToWatch(int clauseNumber, bool value);
 
 	// Trail location.
 	void setTloc(int t);

@@ -12,6 +12,7 @@ class Clause {
 
 	public:
 		Clause(std::vector<int>);
+		std::vector<int>& getLiterals();
 
 	private:
 		std::vector<int> literals;

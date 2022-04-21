@@ -9,6 +9,7 @@ void Heap::push(Variable* v) {
 
 // Return the largest element.
 Variable* Heap::pop() {
+
 	std::pop_heap(heap.begin(), heap.end());
 	auto max = heap.back();
 	heap.pop_back();
