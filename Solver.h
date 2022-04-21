@@ -2,6 +2,7 @@
 #define SOLVER_H
 
 #include <vector>
+#include <algorithm>
 #include "Heap.h"
 #include "Clause.h"
 #include "Variable.h"
@@ -22,6 +23,9 @@ class Solver {
 		int minl = 0;
 		int maxl = 0;
 
+		// Number of variables in problem instance.
+		int n = -1;
+
 		// Index of next trail element to be processed.
 		int G = 0;
 
@@ -30,8 +34,7 @@ class Solver {
 
 		// Variables and clauses.
 		std::vector<Clause> clauses;
-		std::vector<Variable> variables; // Length of this vector is the number of variables in problem.
-
+		std::vector<Variable> variables;
 		// Trail of literals and a record of the levels.
 		std::vector<int> trail; // F = trail.size()
 		std::vector<int> levels;
@@ -46,6 +49,13 @@ class Solver {
 		void addVariableToTrail(int v);
 		void addDecisionVariableToTrail(int variableNumber);
 		void addForcedLiteralToTrail(int literal, int reason);
+
+		// Select a free variable from heap and make a decision.
+		void makeADecision();
+
+		// See if our current variable assignments force a literal
+		// to take a specific value.
+		bool checkForcing(int literal);
 
 		// Convenience functions
 		Variable& vfl(int literal); // Variable object from literal.

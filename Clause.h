@@ -13,9 +13,12 @@ class Clause {
 	public:
 		Clause(std::vector<int>);
 		std::vector<int>& getLiterals();
+		void setClauseNumber(int);
+		int getClauseNumber();
 
 	private:
 		std::vector<int> literals;
+		int clauseNumber = -1;
 
 };
 

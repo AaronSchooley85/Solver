@@ -14,8 +14,15 @@ public:
 	void setValue(int level, int literal);
 	int  getValue();
 
+	// Check if a literal value is true or false.
+	bool isTrue(int literal);
+	bool isFalse(int literal);
+
 	// The current literal value.
 	int getCurrentLiteralValue();
+
+	// The variable number of this variable.
+	int getVariableNumber();
 
 	// The reason for the variable value.
 	void setReason(int r);
@@ -27,6 +34,10 @@ public:
 
 	// Add a clause number to a watch list.
 	void addToWatch(int clauseNumber, bool value);
+
+	// Get all clauses which watched the variable but with
+	// the opposite polarity of what it is assigned.
+	std::vector<int>& getContradictedWatchers();
 
 	// Trail location.
 	void setTloc(int t);

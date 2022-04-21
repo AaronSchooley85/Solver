@@ -23,7 +23,7 @@ Solver::Solver(cnf CNF) {
 
 		// Ensure that a variable object exists corresponding to each literal in the clause.
 		for (auto& literal : encoded) {
-			auto variableNumber = literal >> 1;
+			size_t variableNumber = literal >> 1;
 			while (variables.size() <= variableNumber) variables.push_back(Variable(variables.size()));
 		}
 
@@ -62,6 +62,7 @@ Solver::Solver(cnf CNF) {
 			default:
 				auto clauseNumber = clauses.size();
 				clauses.push_back(Clause(encoded));
+				clauses.back().setClauseNumber(clauseNumber);
 				auto& l0 = clauses.back().getLiterals().at(0);
 				auto& l1 = clauses.back().getLiterals().at(1);
 				auto& v0 = vfl(l0);
@@ -73,6 +74,9 @@ Solver::Solver(cnf CNF) {
 
 	// Record the index for the end of the clause vector.
 	minl = static_cast<int>(clauses.size());
+
+	// Record the number of variables in the problem.
+	n = variables.size() - 1;
 
 	// Add free variables to heap.
 	for (int i = 1; i < variables.size(); ++i) {
@@ -88,35 +92,126 @@ std::vector<bool> Solver::Solve() {
 
 		// If we are out of variables to process we either finished
 		// the problem or need to make a decision on the next variable. 
+		// F == G ? 
 		if (G == trail.size()) {
 
 			// If we are finished.
-			if (trail.size() == variables.size()) {
+			if (trail.size() == n) {
 				
 				// TODO - construct and return boolean vector.
+				std::cout << "Congratulations\n";
+				std::cin.get();
 			}
 			// Not finished. We need to make a decision.
 			else {
 
-				// Record trail index at which this level begins.
-				levels.push_back(trail.size());
-				Variable* nextFree = nullptr;
-				do {
-					nextFree = heap.pop();
-				} while (!nextFree->isFree());
-				
-				// Set free variale to value determined by old value.
-
+				// Select a free variable from the heap and place on trail.
+				// Will result in F = G + 1.
+				makeADecision();
 			}
 
 		}
+
+		// Process next literal on trail pointed at by G and increment G.
+		auto literal = trail.at(G++);
+
+		auto conflictEncountered = checkForcing(literal);
 	}
 
 }
 
-// Convenience methods to get variable objects.
-Variable& Solver::vfl(int literal) { return variables.at(literal >> 1); }
-Variable& Solver::vfv(int variableNumber) { return variables.at(variableNumber); }
+// Knuth step C4.
+// Check if the literal being processed forces other literals to take values.
+// Return value is status of conflict. True -> conflict detected. False -> no conflict.
+bool Solver::checkForcing(int literal) {
+
+	// Get the variable object corresponding to the literals.
+	auto& variable = vfl(literal);
+
+	// Algorithm C requires the literal at index 1 of the clause to be the contradicted literal.
+	auto contradictedLiteral = literal ^ 1;
+
+	// Process each clause which watches the contradicted polarity of the literal.
+	auto& contradictedWatchers = variable.getContradictedWatchers();
+	std::vector<int> contradictedWatcherIndicesToProcess(contradictedWatchers.begin(), contradictedWatchers.end());
+
+	// Inspect each contradicted clause. Below we remove any if necessary from variable's collection.
+	for (auto contradictedClauseNumber : contradictedWatcherIndicesToProcess){
+
+		// Get the clause which contains the contradicted literal and its literals.
+		auto& contradictedClause = clauses.at(contradictedClauseNumber);
+		auto& contradictedClauseLiterals = contradictedClause.getLiterals();
+
+		// Swap first two literals if the element at index 1 is not the contradicted literal.
+		if (contradictedClauseLiterals.at(1) != contradictedLiteral) {
+			std::iter_swap(contradictedClauseLiterals.begin(), contradictedClauseLiterals.begin() + 1);
+		}
+
+		// If literal at index 0 is not true (i.e. false or unset).
+		auto l0 = contradictedClauseLiterals.front();
+		auto& v0 = vfl(l0);
+		if (!v0.isTrue(l0)) {
+			
+			bool swapSuccess = false;
+			for (size_t i = 2, len = contradictedClauseLiterals.size(); i < len; ++i) {
+
+				// Get the candidate literal and its associated variable object.
+				auto lx = contradictedClauseLiterals.at(i);
+				auto& vx = vfl(lx);
+
+				// If the new variable has not been set false.
+				if (!vx.isFalse(lx)) {
+
+					// Swap elements, add clause to new watched variable, and remove from old variable's watch.
+					std::swap(contradictedClauseLiterals.at(0), contradictedClauseLiterals.at(i));
+					vx.addToWatch(contradictedClause.getClauseNumber(), !(lx & 1));
+
+					// Remove clause number from watch list of previously watched variable. Exchange and pop off back.
+				    auto indexToRemove = std::find(contradictedWatchers.begin(), contradictedWatchers.end(), contradictedClauseNumber);
+					std::iter_swap(indexToRemove, contradictedWatchers.end() -1);
+					contradictedWatchers.pop_back();
+					swapSuccess = true;
+					break;
+				}
+			}
+
+			// If we could not swap with another variable, we must check literal at clause index 0.
+			if (!swapSuccess) {
+
+				// If v0 is free, set it such that it is true. Note that we could not change the
+				// watched literal which was in contradiction. But because l0 is now true, this
+				// step C4 will skip this clause and not care (see above logic).
+				if (v0.isFree()) {
+					addForcedLiteralToTrail(l0, contradictedClauseNumber);
+				}
+				// We must resolve a conflict.
+				else {
+					std::cout << "Resolve\n";
+				}
+			}
+		}
+	}
+
+	return false;
+
+}
+
+// Knuth step C6.
+void Solver::makeADecision() {
+
+	// Record trail index at which this level begins.
+	levels.push_back(trail.size());
+	Variable* nextFree = nullptr;
+	do {
+		nextFree = heap.pop();
+	} while (!nextFree->isFree());
+	
+	// Add the new decision variable to the trail.
+	// This will cause F = G + 1
+	addDecisionVariableToTrail(nextFree->getVariableNumber());
+}
+
+
 
 // Add a variable to trail. The value is determined by the oval property. There is
 // no reason since it was a decision.
@@ -175,3 +270,7 @@ void Solver::addVariableToTrail(int variableNumber) {
 void Solver::addVariableToTrail(int variableNumber, bool b) {
 
 }
+
+// Convenience methods to get variable objects.
+Variable& Solver::vfl(int literal) { return variables.at(literal >> 1); }
+Variable& Solver::vfv(int variableNumber) { return variables.at(variableNumber); }

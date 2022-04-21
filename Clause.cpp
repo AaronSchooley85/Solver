@@ -7,3 +7,7 @@ Clause::Clause(std::vector<int> clause) {
 }
 
 std::vector<int>& Clause::getLiterals() { return literals; }
+
+void Clause::setClauseNumber(int c) { clauseNumber = c; }
+
+int Clause::getClauseNumber() { return clauseNumber; }

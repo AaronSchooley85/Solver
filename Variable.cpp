@@ -11,9 +11,18 @@ void Variable::setValue(int level) { val = 2 * level + (oval & 1); }
 void Variable::setValue(int level, int literal) { val = 2 * level + (literal & 1); }
 
 // Get the current literal value determined by variable number and old value.
-int Variable::getCurrentLiteralValue() { return 2 * variable + (oval & 1); }
+int Variable::getCurrentLiteralValue() { return 2 * variable + (val & 1); }
+
+// Get the variable number of this variable object. This is its index in the variable vector.
+int Variable::getVariableNumber() { return variable; }
 
 int Variable::getValue() { return val; }
+
+// Check the truth value of a literal.
+bool Variable::isTrue(int literal) { return ((val >= 0) && ((val + literal) % 2 == 0)); }
+bool Variable::isFalse(int literal) { return ((val >=0) && ((val + literal) & 1)); }
+
+std::vector<int>& Variable::getContradictedWatchers(){ return (val & 1) ? watchingTrue : watchingFalse; }
 
 // Access the reason property.
 int Variable::getReason() { return reason; }
