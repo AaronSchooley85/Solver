@@ -16,9 +16,19 @@ class Clause {
 		void setClauseNumber(int);
 		int getClauseNumber();
 
+		void setReasonFor(int v);
+		int getReasonFor();
+
 	private:
+
+		// The literals which compose this clause.
 		std::vector<int> literals;
+
+		// Index position in the clause vector.
 		int clauseNumber = -1;
+
+		// Variable which cites this clause as a reason.
+		int reasonFor = -1;
 
 };
 

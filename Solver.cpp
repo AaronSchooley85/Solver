@@ -11,7 +11,7 @@ Solver::Solver(cnf CNF) {
 	// Create dummy entries here.
 	variables.push_back(Variable(0));
 	clauses.push_back(Clause({}));
-	levels.push_back(0); // Decision zero is always at index 0.
+	levels.push_back(0);
 
 	// Loop through the CNF and process each clause within.
 	for (auto& clause : CNF) {
@@ -211,7 +211,56 @@ void Solver::makeADecision() {
 	addDecisionVariableToTrail(nextFree->getVariableNumber());
 }
 
+// Construct a new clause.
+void Solver::resolveConflict(const std::vector<int>& clause) {
+	
+	// If there have been no decision levels created, we failed.
+	if (!depth()) {
+		solutionFailed = true;
+		return;
+	}
 
+	// Data needed for blit routine below.
+	int count = 0;
+	std::vector<int> b; // 'r' is the size of b.
+	size_t stamp = nextStamp();
+	int dprime = 0;
+
+	// Process the first literal in the clause.
+	auto l0 = clause.front();
+	auto& v0 = vfl(l0);
+	v0.setStamp(stamp);
+	v0.bumpActivity(DEL);
+
+	// Local function to process 'b' literals.
+	auto blit = [&](int literal) {
+
+		auto& v = vfl(literal);
+		if (v.getStamp() != stamp) {
+			v.setStamp(stamp);
+			auto p = v.getValue() >> 1;
+			if (p > 0) v.bumpActivity(DEL);
+			if (p == depth()) {
+				++count;
+			}
+			else {
+				b.push_back(literal ^ 1);
+				dprime = std::max(p, dprime);
+			}
+		}
+	};
+
+	// Apply blit algorithm to other literals in clause.
+	for (size_t i = 1, len = clause.size(); i < len; ++i) blit(clause.at(i));
+
+	// Get the highest trail index of all literals in the clause.
+	int t = -1;
+	for (size_t i = 0, len = clause.size(); i < len; ++i) t = std::max(vfl(clause.at(i)).getTloc(), t);
+
+	while (count > 0) {
+
+	}
+}
 
 // Add a variable to trail. The value is determined by the oval property. There is
 // no reason since it was a decision.
@@ -274,3 +323,14 @@ void Solver::addVariableToTrail(int variableNumber, bool b) {
 // Convenience methods to get variable objects.
 Variable& Solver::vfl(int literal) { return variables.at(literal >> 1); }
 Variable& Solver::vfv(int variableNumber) { return variables.at(variableNumber); }
+
+size_t Solver::nextStamp() {
+	stamp += 3;
+	return stamp;
+}
+
+// Index of levels is the same as level. So level 1 begins
+// at index 1. Level 0 at index zero is always equal to zero
+// and doesn't count toward the level count. Therefore with only
+// zero in index zero, we have a depth of zero (size - 1).
+int Solver::depth() { return (levels.size() -1); }

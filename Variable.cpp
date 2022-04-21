@@ -33,12 +33,14 @@ void Variable::setHloc(bool b) { hloc = b; }
 
 // The trail index of the variable.
 void Variable::setTloc(int t) { tloc = t; }
+int  Variable::getTloc() { return tloc; }
 
 // Get heap membership status.
 bool Variable::getHloc() { return hloc; }
 
 // Get the activity score used for heap location.
 int Variable::getActivity() const { return act; }
+void Variable::bumpActivity(double amount) { act += amount; }
 
 bool Variable::isFree() { return val < 0; }
 
@@ -47,3 +49,7 @@ void Variable::addToWatch(int clauseNumber, bool value) {
 	if (value) watchingTrue.push_back(clauseNumber);
 	else watchingFalse.push_back(clauseNumber);
 }
+
+// Getter and setter for stamp value.
+size_t Variable::getStamp() { return stamp; }
+void Variable::setStamp(size_t s) { stamp = s; }

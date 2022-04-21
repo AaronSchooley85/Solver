@@ -32,6 +32,10 @@ public:
 	void setHloc(bool b);
 	bool getHloc();
 
+	// Stamp processing.
+	size_t getStamp();
+	void setStamp(size_t s);
+
 	// Add a clause number to a watch list.
 	void addToWatch(int clauseNumber, bool value);
 
@@ -41,8 +45,10 @@ public:
 
 	// Trail location.
 	void setTloc(int t);
+	int getTloc();
 
 	int getActivity() const;
+	void bumpActivity(double amount);
 
 	bool isFree();
 
@@ -58,12 +64,12 @@ private:
 
 	// variable attributes. 
 	int variable = -1;
-	int stamp = 0;
+	size_t stamp = 0;
 	int tloc = -1;
 	bool hloc = false;
 	int val = -1;
 	int oval = -1;
-	int act = 0;
+	double act = 0;
 
 };
 
