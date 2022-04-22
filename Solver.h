@@ -68,8 +68,11 @@ class Solver {
 		// Resolve conflicts which are encountered by force checking.
 		void resolveConflict(const std::vector<int>& clause);
 
+		// Remove literals from the trail until the specified level is reached.
+		void backjump(int dprime);
+
 		// Install the newly learned clause from conflict resolution.
-		void Learn(std::vector<int>& clause, int dprime);
+		void learn(std::vector<int>& clause, int dprime);
 
 		// Convenience functions
 		Variable& vfl(int literal); // Variable object from literal.

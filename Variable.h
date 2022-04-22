@@ -14,6 +14,10 @@ public:
 	void setValue(int level, int literal);
 	int  getValue();
 
+	// Access old value;
+	int  getOval();
+	void setOval(int);
+
 	// Check if a literal value is true or false.
 	bool isTrue(int literal);
 	bool isFalse(int literal);

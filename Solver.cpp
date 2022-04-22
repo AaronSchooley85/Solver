@@ -99,6 +99,7 @@ std::vector<bool> Solver::Solve() {
 				
 				// TODO - construct and return boolean vector.
 				std::cout << "Congratulations\n";
+				for (auto t : trail) std::cout << (t >> 1) << (t & 1 ? " false" : " true") << "\n";
 				std::cin.get();
 			}
 			// Not finished. We need to make a decision.
@@ -112,9 +113,15 @@ std::vector<bool> Solver::Solve() {
 		}
 
 		// Process next literal on trail pointed at by G and increment G.
-		auto literal = trail.at(G++);
-
-		auto conflictEncountered = checkForcing(literal);
+		bool conflictEncountered = false;
+		do {
+			auto literal = trail.at(G++);
+			conflictEncountered = checkForcing(literal);
+			if (conflictEncountered && solutionFailed) {
+				std::cout << "No solution\n";
+				std::cin.get();
+			}
+		} while (conflictEncountered);
 	}
 
 }
@@ -185,7 +192,8 @@ bool Solver::checkForcing(int literal) {
 				}
 				// We must resolve a conflict.
 				else {
-					std::cout << "Resolve\n";
+					resolveConflict(contradictedClauseLiterals);
+					return true;
 				}
 			}
 		}
@@ -239,7 +247,7 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 			v.setStamp(stamp);
 			auto p = v.getValue() >> 1;
 			if (p > 0) {
-				v.bumpActivity(DEL);
+				v.bumpActivity(DEL); // Anytime we bump activity we may corrupt heap. Reheapify before popping heap? Set corrupted flag?
 				if (p == depth()) {
 					++count;
 				}
@@ -275,10 +283,89 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	auto lprime = trail.at(t--);
 	while (vfl(lprime).getStamp() != stamp) lprime = trail.at(t--);
 	b.front() = lprime ^ 1; // Replace placeholder.
+
+	// Remove literals from the trail.
+	backjump(dprime);
+
+	// Install the new clause.
+	learn(b, dprime);
 }
 
-void Solver::Learn(std::vector<int>& clause, int dprime) {
+// Remove literals from the trail until the specified level is reached.
+void Solver::backjump(int dprime) {
 
+	size_t target = levels.at(dprime + 1);
+	while (trail.size() > target) {
+		auto lit = trail.back();
+		trail.pop_back();			// Remove from trail.
+		auto& v = vfl(lit);			// Get variable object.
+		v.setOval(v.getValue());	// Set old value to current.
+		v.setValue(-1);				// Reset value.
+		v.setTloc(-1);				// Reset trail location !!! Did not see in step C8!
+		v.setReason(-1);			// Reset reason clause.
+		if (v.getHloc() != -1) heap.push(&v); // Place on heap if not already there.
+	}
+
+	G = trail.size(); // G now points to the next literal to be placed on the trail. 
+				      // Step C9 - 'learn' will place that next literal.
+
+	// Set d = d'.
+	levels.resize(dprime);
+}
+
+void Solver::learn(std::vector<int>& clause, int d) {
+
+	// Not unit clause - Install the clause.
+	if (d) {
+
+		int l0 = clause.front();
+		int clauseNumber = clauses.size();
+		clauses.push_back(Clause(clause));
+		clauses.back().setClauseNumber(clauseNumber);
+		addForcedLiteralToTrail(l0 , clauseNumber);
+
+		// Ensure we are watching literals defined on level d.
+		bool found = false;
+		for (size_t i = 1, len = clause.size(); i < len; ++i) {
+			auto& v = vfl(clause.at(i));
+			auto level = v.getValue() >> 1;
+			if (level == d) {
+				found = true;
+				std::iter_swap(clause.begin() + 1, clause.begin() + i);
+			}
+		}
+
+		// Set the watches for the new clause. 
+		vfl(l0).addToWatch(clauseNumber, (l0 % 2) == 0);
+		int l1 = clause.at(1);
+		vfl(l1).addToWatch(clauseNumber, (l1 % 2) == 0);
+
+
+#ifdef DEBUG
+		if (clause.size() == 1) {
+			std::cout << "We'd expect levels greater than 0 to not be unit clauses\n";
+			std::cin.get();
+			exit(1);
+		}
+#endif
+	}
+	// Unit clause - We don't install unit clauses which will be at level 0.
+	else {
+
+		// Add unit clause to trail. Unit clauses do not have reasons.
+		addForcedLiteralToTrail(clause.front(), -1);
+
+#ifdef DEBUG
+		if (clause.size() != 1) {
+			std::cout << "We'd expect level zero to be unit clauses\n";
+			std::cin.get();
+			exit(1);
+		}
+#endif
+
+	}
+
+	DEL /= rho;
 }
 // Add a variable to trail. The value is determined by the oval property. There is
 // no reason since it was a decision.
@@ -310,6 +397,9 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 		variable.setTloc(static_cast<int>(trail.size()));
 		variable.setReason(reason);
 		trail.push_back(variable.getCurrentLiteralValue());
+
+		// Let the clause know it is the reason for a literal. 
+		if (reason != -1) clauses.at(reason).setReasonFor(variable.getVariableNumber());
 	
 #ifdef DEBUG 
 		if (literal != variable.getCurrentLiteralValue()) {

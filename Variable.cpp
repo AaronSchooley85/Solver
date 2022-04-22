@@ -18,6 +18,10 @@ int Variable::getVariableNumber() { return variable; }
 
 int Variable::getValue() { return val; }
 
+// Access old value.
+int Variable::getOval(){ return oval; }
+void Variable::setOval(int v) { oval = v; }
+
 // Check the truth value of a literal.
 bool Variable::isTrue(int literal) { return ((val >= 0) && ((val + literal) % 2 == 0)); }
 bool Variable::isFalse(int literal) { return ((val >=0) && ((val + literal) & 1)); }
