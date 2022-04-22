@@ -168,7 +168,7 @@ bool Solver::checkForcing(int literal) {
 				if (!vx.isFalse(lx)) {
 
 					// Swap elements, add clause to new watched variable, and remove from old variable's watch.
-					std::swap(contradictedClauseLiterals.at(0), contradictedClauseLiterals.at(i));
+					std::swap(contradictedClauseLiterals.at(1), contradictedClauseLiterals.at(i));
 					vx.addToWatch(contradictedClause.getClauseNumber(), !(lx & 1));
 
 					// Remove clause number from watch list of previously watched variable. Exchange and pop off back.
