@@ -3,7 +3,7 @@
 
 int main() {
 
-	std::vector<std::vector<int>> CNF{ {1}, {-2, -3, 5}, {2}, {-5, -1, 2} };
+	std::vector<std::vector<int>> CNF{ {1}, {-1,2, 3}, {-2, -1, -3} };
 	Solver S(CNF);
 	S.Solve();
 	std::cin.get();

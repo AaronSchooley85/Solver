@@ -109,7 +109,6 @@ std::vector<bool> Solver::Solve() {
 				// Will result in F = G + 1.
 				makeADecision();
 			}
-
 		}
 
 		// Process next literal on trail pointed at by G and increment G.
@@ -282,7 +281,7 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	// Find the last stamped literal.
 	auto lprime = trail.at(t--);
 	while (vfl(lprime).getStamp() != stamp) lprime = trail.at(t--);
-	b.front() = lprime ^ 1; // Replace placeholder.
+	b.front() = lprime ^ 1; // Overwrite placeholder. 
 
 	// Remove literals from the trail.
 	backjump(dprime);
