@@ -11,7 +11,6 @@ Solver::Solver(cnf CNF) {
 	// Create dummy entries here.
 	variables.push_back(Variable(0));
 	clauses.push_back(Clause({}));
-	levels.push_back(0);
 
 	// Loop through the CNF and process each clause within.
 	for (auto& clause : CNF) {
@@ -222,14 +221,14 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 
 	// Data needed for blit routine below.
 	int count = 0;
-	std::vector<int> b; // 'r' is the size of b.
+	std::vector<int> b{ -1 }; // 'r' is the size of b. Placeholder at index 0.
 	size_t stamp = nextStamp();
 	int dprime = 0;
 
 	// Process the first literal in the clause.
 	auto l0 = clause.front();
 	auto& v0 = vfl(l0);
-	v0.setStamp(stamp);
+	v0.setStamp(stamp); // Stamped here, not in 'blit' so count is not affected. 
 	v0.bumpActivity(DEL);
 
 	// Local function to process 'b' literals.
@@ -239,29 +238,48 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 		if (v.getStamp() != stamp) {
 			v.setStamp(stamp);
 			auto p = v.getValue() >> 1;
-			if (p > 0) v.bumpActivity(DEL);
-			if (p == depth()) {
-				++count;
-			}
-			else {
-				b.push_back(literal ^ 1);
-				dprime = std::max(p, dprime);
+			if (p > 0) {
+				v.bumpActivity(DEL);
+				if (p == depth()) {
+					++count;
+				}
+				else {
+					b.push_back(literal ^ 1);
+					dprime = std::max(p, dprime);
+				}
 			}
 		}
 	};
 
-	// Apply blit algorithm to other literals in clause.
+	// Apply blit algorithm to all literals at index GREATER THAN 0 in clause.
 	for (size_t i = 1, len = clause.size(); i < len; ++i) blit(clause.at(i));
 
-	// Get the highest trail index of all literals in the clause.
-	int t = -1;
-	for (size_t i = 0, len = clause.size(); i < len; ++i) t = std::max(vfl(clause.at(i)).getTloc(), t);
+	// Get the highest trail index of ALL literals in the clause.
+	int t = 0;
+	for (auto lit : clause) t = std::max(vfl(lit).getTloc(), t);
 
 	while (count > 0) {
+		auto l = trail.at(t--); // Get literal furthest up the trail.
+		auto& v = vfl(l);
+		count -= (v.getStamp() == stamp); // Branchless, conditional decrement if stamp matches.
+		int reasonIndex = v.getReason();
 
+		// Process a reason if it exists. 
+		if (reasonIndex != -1) {
+			auto& reasonClause = clauses.at(reasonIndex).getLiterals();
+			for (size_t i = 1, len = reasonClause.size(); i < len; ++i) blit(reasonClause.at(i));
+		}
 	}
+
+	// Find the last stamped literal.
+	auto lprime = trail.at(t--);
+	while (vfl(lprime).getStamp() != stamp) lprime = trail.at(t--);
+	b.front() = lprime ^ 1; // Replace placeholder.
 }
 
+void Solver::Learn(std::vector<int>& clause, int dprime) {
+
+}
 // Add a variable to trail. The value is determined by the oval property. There is
 // no reason since it was a decision.
 void Solver::addDecisionVariableToTrail(int variableNumber) {
@@ -333,4 +351,4 @@ size_t Solver::nextStamp() {
 // at index 1. Level 0 at index zero is always equal to zero
 // and doesn't count toward the level count. Therefore with only
 // zero in index zero, we have a depth of zero (size - 1).
-int Solver::depth() { return (levels.size() -1); }
+int Solver::depth() { return levels.size(); }

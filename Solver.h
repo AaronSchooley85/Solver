@@ -62,12 +62,14 @@ class Solver {
 		// Select a free variable from heap and make a decision.
 		void makeADecision();
 
-		// Resolve conflicts.
+		// See if our current variable assignments force a literal to take a specific value.
+		bool checkForcing(int literal);
+
+		// Resolve conflicts which are encountered by force checking.
 		void resolveConflict(const std::vector<int>& clause);
 
-		// See if our current variable assignments force a literal
-		// to take a specific value.
-		bool checkForcing(int literal);
+		// Install the newly learned clause from conflict resolution.
+		void Learn(std::vector<int>& clause, int dprime);
 
 		// Convenience functions
 		Variable& vfl(int literal); // Variable object from literal.
