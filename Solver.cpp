@@ -256,7 +256,7 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 					++count;
 				}
 				else {
-					b.push_back(literal ^ 1);
+					b.push_back(literal);
 					dprime = std::max(p, dprime);
 				}
 			}
