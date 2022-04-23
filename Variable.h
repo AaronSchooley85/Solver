@@ -72,7 +72,7 @@ private:
 	int tloc = -1;
 	bool hloc = false;
 	int val = -1;
-	int oval = -1;
+	int oval = 0;
 	double act = 0;
 
 };

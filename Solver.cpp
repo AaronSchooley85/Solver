@@ -1,7 +1,10 @@
 #include "Solver.h"
 #include <iostream>
+#include <random>
+#include <chrono>
 
 #define DEBUG
+
 
 // Solver constructor. Initializes variables, loads clauses, and processes
 // unit clauses. 
@@ -78,9 +81,13 @@ Solver::Solver(cnf CNF) {
 	n = variables.size() - 1;
 
 	// Add free variables to heap.
-	for (int i = 1; i < variables.size(); ++i) {
-		auto& variable = variables.at(i);
-		if (variable.isFree()) heap.push(&variable);
+	std::vector<Variable*> shuffledVariablePointers;
+	for (int i = 1; i < variables.size(); ++i) shuffledVariablePointers.push_back(&variables.at(i));
+	auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+	seed = 7;
+	std::shuffle(shuffledVariablePointers.begin(), shuffledVariablePointers.end(), std::default_random_engine(seed));
+	for (auto &v : shuffledVariablePointers) {
+		if (v->isFree()) heap.push(v);
 	}
 }
 
@@ -199,7 +206,6 @@ bool Solver::checkForcing(int literal) {
 	}
 
 	return false;
-
 }
 
 // Knuth step C6.
@@ -290,10 +296,10 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	learn(b, dprime);
 }
 
-// Remove literals from the trail until the specified level is reached.
+// Remove literals from the trail until the specified level is reached. TODO - Double check level stuff. I use a different system than Knuth. dprime vs dprime + 1
 void Solver::backjump(int dprime) {
 
-	size_t target = levels.at(dprime + 1);
+	size_t target = levels.at(dprime); // Not dprime + 1 because I'm not storing level 0 on my levels vector.
 	while (trail.size() > target) {
 		auto lit = trail.back();
 		trail.pop_back();			// Remove from trail.
