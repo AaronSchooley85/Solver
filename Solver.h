@@ -2,6 +2,7 @@
 #define SOLVER_H
 
 #include <vector>
+#include <math.h>
 #include <algorithm>
 #include "Heap.h"
 #include "Clause.h"
@@ -47,6 +48,7 @@ class Solver {
 
 		// DEL is the amount to increase the variable activity by.
 		double DEL = 1.0;
+
 
 		// Flag to indicate that we have failed to find a solution.
 		bool solutionFailed = false;

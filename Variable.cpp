@@ -44,7 +44,19 @@ bool Variable::getHloc() { return hloc; }
 
 // Get the activity score used for heap location.
 int Variable::getActivity() const { return act; }
-void Variable::bumpActivity(double amount) { act += amount; }
+
+// Set the activity to a specific amount. Typically used for rescaling.
+void Variable::setActivity(double amount) { act = amount; }
+
+// Increase the activity. A boolean flag is returned to indicate to the
+// calling routine whether the threshold has been exceeded and must be rescaled. 
+bool Variable::bumpActivity(double amount) { 
+	act += amount; 
+#ifdef DEBUG
+	if (act > threshold) std::cout << "Rescaling needed\n";
+#endif
+	return act > threshold;
+}
 
 bool Variable::isFree() { return val < 0; }
 

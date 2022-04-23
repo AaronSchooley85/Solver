@@ -84,7 +84,7 @@ Solver::Solver(cnf CNF) {
 	std::vector<Variable*> shuffledVariablePointers;
 	for (int i = 1; i < variables.size(); ++i) shuffledVariablePointers.push_back(&variables.at(i));
 	auto seed = std::chrono::system_clock::now().time_since_epoch().count();
-	seed = 7;
+	//seed = 7;
 	std::shuffle(shuffledVariablePointers.begin(), shuffledVariablePointers.end(), std::default_random_engine(seed));
 	for (auto &v : shuffledVariablePointers) {
 		if (v->isFree()) heap.push(v);
@@ -105,9 +105,10 @@ std::vector<bool> Solver::Solve() {
 			if (trail.size() == n) {
 				
 				// TODO - construct and return boolean vector.
-				std::cout << "Congratulations\n";
-				for (auto t : trail) std::cout << (t >> 1) << (t & 1 ? " false" : " true") << "\n";
-				std::cin.get();
+				std::vector<bool> solution(n + 1);
+				solution.front() = true;
+				for (auto t : trail) solution.at(t >> 1) = t & 1 ? false : true;
+				return solution;
 			}
 			// Not finished. We need to make a decision.
 			else {
@@ -123,10 +124,7 @@ std::vector<bool> Solver::Solve() {
 		do {
 			auto literal = trail.at(G++);
 			conflictEncountered = checkForcing(literal);
-			if (conflictEncountered && solutionFailed) {
-				std::cout << "No solution\n";
-				std::cin.get();
-			}
+			if (conflictEncountered && solutionFailed) return std::vector<bool>{false};
 		} while (conflictEncountered);
 	}
 
@@ -242,7 +240,8 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	auto l0 = clause.front();
 	auto& v0 = vfl(l0);
 	v0.setStamp(stamp); // Stamped here, not in 'blit' so count is not affected. 
-	v0.bumpActivity(DEL);
+	bool rescale = false;
+	rescale |= v0.bumpActivity(DEL);
 
 	// Local function to process 'b' literals.
 	auto blit = [&](int literal) {
@@ -252,7 +251,7 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 			v.setStamp(stamp);
 			auto p = v.getValue() >> 1;
 			if (p > 0) {
-				v.bumpActivity(DEL); // Anytime we bump activity we may corrupt heap. Reheapify before popping heap? Set corrupted flag?
+				rescale |= v.bumpActivity(DEL); // Anytime we bump activity we may corrupt heap. Reheapify before popping heap? Set corrupted flag?
 				if (p == depth()) {
 					++count;
 				}
@@ -266,6 +265,19 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 
 	// Apply blit algorithm to all literals at index GREATER THAN 0 in clause.
 	for (size_t i = 1, len = clause.size(); i < len; ++i) blit(clause.at(i));
+
+	// If any variable had its activity score exceed our given threshold, rescale
+	// all variables by that threshold. 
+	if (rescale) {
+		for (size_t i = 1, len = variables.size(); i < len; ++i) {
+			auto &variable = variables.at(i);
+			auto currentActivity = variable.getActivity();
+			variable.setActivity(currentActivity / variable.threshold);
+		}
+
+		// Rescale DEL too.
+		DEL /= variables.front().threshold;
+	}
 
 	// Get the highest trail index of ALL literals in the clause.
 	int t = 0;

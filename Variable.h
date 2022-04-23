@@ -2,6 +2,9 @@
 #define VARIABLE_H
 
 #include <vector>
+#include <iostream>
+
+#define DEBUG
 
 class Variable {
 
@@ -52,9 +55,13 @@ public:
 	int getTloc();
 
 	int getActivity() const;
-	void bumpActivity(double amount);
+	void setActivity(double amount);
+	bool bumpActivity(double amount);
 
 	bool isFree();
+
+	// Threshold after which all variables AND DEL will be rescaled.
+	const double threshold = 10.0e100;
 
 private:
 
