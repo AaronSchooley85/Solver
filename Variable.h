@@ -4,7 +4,7 @@
 #include <vector>
 #include <iostream>
 
-#define DEBUG
+//#define DEBUG
 
 class Variable {
 

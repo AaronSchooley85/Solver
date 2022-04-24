@@ -8,6 +8,7 @@
 #include "Clause.h"
 #include "Variable.h"
 
+
 class Solver {
 
 	// Define a cnf as a vector of vectors.
@@ -57,8 +58,6 @@ class Solver {
 		/* Private methods */
 
 		// Add elements to trail.
-		void addVariableToTrail(int v, bool b);
-		void addVariableToTrail(int v);
 		void addDecisionVariableToTrail(int variableNumber);
 		void addForcedLiteralToTrail(int literal, int reason);
 

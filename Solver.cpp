@@ -3,8 +3,8 @@
 #include <random>
 #include <chrono>
 
-#define DEBUG
 
+#define DEBUG
 
 // Solver constructor. Initializes variables, loads clauses, and processes
 // unit clauses. 
@@ -254,7 +254,7 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 		auto& v = vfl(literal);
 		if (v.getStamp() != stamp) {
 			v.setStamp(stamp);
-			auto p = v.getValue() >> 1;
+			auto p = (v.getValue() >> 1);
 			if (p > 0) {
 				rescale |= v.bumpActivity(DEL); // Anytime we bump activity we may corrupt heap. Reheapify before popping heap? Set corrupted flag?
 				count += (p == currentDepth);
@@ -290,24 +290,33 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 
 	// Get the highest trail index of ALL literals in the clause.
 	int t = 0;
-	for (auto lit : clause) t = std::max(vfl(lit).getTloc(), t);
+	for (auto lit : clause) {
+		auto& v = vfl(lit);
+		t = std::max(v.getTloc(), t); // Am I using 'max' correctly?
+	}
 
 	while (count > 0) {
 		auto l = trail.at(t--); // Get literal furthest up the trail.
 		auto& v = vfl(l);
-		count -= (v.getStamp() == stamp); // Branchless, conditional decrement if stamp matches.
-		int reasonIndex = v.getReason();
+		if (v.getStamp() == stamp) {
 
-		// Process a reason if it exists. 
-		if (reasonIndex != -1) {
-			auto& reasonClause = clauses.at(reasonIndex).getLiterals();
-			for (size_t i = 1, len = reasonClause.size(); i < len; ++i) blit(reasonClause.at(i));
+			count--;
+			int reasonIndex = v.getReason();
+
+			// Process a reason if it exists. 
+			if (reasonIndex != -1) {
+				auto& reasonClause = clauses.at(reasonIndex).getLiterals();
+				for (size_t i = 1, len = reasonClause.size(); i < len; ++i) blit(reasonClause.at(i));
+			}
 		}
 	}
 
 	// Find the last stamped literal.
-	auto lprime = trail.at(t--);
-	while (vfl(lprime).getStamp() != stamp) lprime = trail.at(t--);
+	int lprime = -1;
+	do {
+		lprime = trail.at(t--);
+	} while (vfl(lprime).getStamp() != stamp);
+
 	b.front() = lprime ^ 1; // Overwrite placeholder. 
 
 	// Remove literals from the trail.
@@ -376,13 +385,23 @@ void Solver::learn(std::vector<int>& clause, int d) {
 			if (level == d) {
 				found = true;
 				std::iter_swap(clause.begin() + 1, clause.begin() + i);
+				break;
 			}
 		}
 
-		// Set the watches for the new clause. 
-		vfl(l0).addToWatch(clauseNumber, (l0 % 2) == 0);
-		int l1 = clause.at(1);
-		vfl(l1).addToWatch(clauseNumber, (l1 % 2) == 0);
+		if (found) {
+			// Set the watches for the new clause. 
+			auto& v0 = vfl(l0);
+			v0.addToWatch(clauseNumber, (l0 % 2) == 0);
+			int l1 = clause.at(1);
+			auto& v1 = vfl(l1);
+			v1.addToWatch(clauseNumber, (l1 % 2) == 0);
+		}
+		else {
+			std::cout << "No literal found on level d to watch!\n";
+			std::cin.get();
+			exit(1);
+		}
 
 
 #ifdef DEBUG
@@ -458,8 +477,11 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 			std::cin.get();
 			exit(1);
 		}
+#endif
 
 	}
+
+#ifdef DEBUG
 	else {
 		std::cout << "Placing a variable which is not free on trail!\n";
 		std::cin.get();
@@ -468,16 +490,6 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 #endif
 }
 
-
-// Add variable to trail. Polarity is determined by internal parity.
-void Solver::addVariableToTrail(int variableNumber) {
-
-}
-
-// Add variable to trail with the specified polarity.
-void Solver::addVariableToTrail(int variableNumber, bool b) {
-
-}
 
 // Convenience methods to get variable objects.
 Variable& Solver::vfl(int literal) { return variables.at(literal >> 1); }
