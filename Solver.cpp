@@ -14,6 +14,7 @@ Solver::Solver(cnf CNF) {
 	// Create dummy entries here.
 	variables.push_back(Variable(0));
 	clauses.push_back(Clause({}));
+	levels.push_back(0); // Level 0 (level k is at levels[k] ) always starts at trail index 0.
 
 	// Loop through the CNF and process each clause within.
 	for (auto& clause : CNF) {
@@ -79,6 +80,9 @@ Solver::Solver(cnf CNF) {
 
 	// Record the number of variables in the problem.
 	n = variables.size() - 1;
+	std::cout << "Number of variables: " << n << "\n";
+	std::cout << "Number of clauses: " << clauses.size() - 1 + trail.size() << "\n";
+	std::cout << "Number of unit clauses: " << trail.size() << "\n";
 
 	// Add free variables to heap.
 	std::vector<Variable*> shuffledVariablePointers;
@@ -225,7 +229,7 @@ void Solver::makeADecision() {
 void Solver::resolveConflict(const std::vector<int>& clause) {
 	
 	// If there have been no decision levels created, we failed.
-	if (!depth()) {
+	if (depth() == 0) {
 		solutionFailed = true;
 		return;
 	}
@@ -242,6 +246,7 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	v0.setStamp(stamp); // Stamped here, not in 'blit' so count is not affected. 
 	bool rescale = false;
 	rescale |= v0.bumpActivity(DEL);
+	int currentDepth = depth();
 
 	// Local function to process 'b' literals.
 	auto blit = [&](int literal) {
@@ -252,10 +257,8 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 			auto p = v.getValue() >> 1;
 			if (p > 0) {
 				rescale |= v.bumpActivity(DEL); // Anytime we bump activity we may corrupt heap. Reheapify before popping heap? Set corrupted flag?
-				if (p == depth()) {
-					++count;
-				}
-				else {
+				count += (p == currentDepth);
+				if (p < currentDepth) {
 					b.push_back(literal);
 					dprime = std::max(p, dprime);
 				}
@@ -263,6 +266,12 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 		}
 	};
 
+#ifdef DEBUG
+	if (dprime >= currentDepth) {
+		std::cout << "d' is supposed to be less than depth\n";
+		std::cin.get();
+	}
+#endif
 	// Apply blit algorithm to all literals at index GREATER THAN 0 in clause.
 	for (size_t i = 1, len = clause.size(); i < len; ++i) blit(clause.at(i));
 
@@ -308,29 +317,47 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	learn(b, dprime);
 }
 
-// Remove literals from the trail until the specified level is reached. TODO - Double check level stuff. I use a different system than Knuth. dprime vs dprime + 1
+// Remove literals from the trail until the specified level is reached.
 void Solver::backjump(int dprime) {
 
-	size_t target = levels.at(dprime); // Not dprime + 1 because I'm not storing level 0 on my levels vector.
+	size_t target = levels.at(dprime + 1); // Find where the next level begins.
+
+#ifdef DEBUG 
+	std::cout << "Backjumping to d' : " << dprime << "\n";
+	std::cout << "Target size is: " << target << "\n";
+#endif
+
+	// Remove elements until we are left with 'F' pointing to the next free
+	// space at level dprime.
 	while (trail.size() > target) {
-		auto lit = trail.back();
+		auto lit = trail.back();    // Get last element from trail.
 		trail.pop_back();			// Remove from trail.
 		auto& v = vfl(lit);			// Get variable object.
 		v.setOval(v.getValue());	// Set old value to current.
 		v.setValue(-1);				// Reset value.
 		v.setTloc(-1);				// Reset trail location !!! Did not see in step C8!
 		v.setReason(-1);			// Reset reason clause.
-		if (v.getHloc() != -1) heap.push(&v); // Place on heap if not already there.
+		if (!v.getHloc()) heap.push(&v); // Place on heap if not already there.
 	}
 
 	G = trail.size(); // G now points to the next literal to be placed on the trail. 
 				      // Step C9 - 'learn' will place that next literal.
 
 	// Set d = d'.
-	levels.resize(dprime);
+	levels.resize(dprime + 1);
+
+#ifdef DEBUG
+	std::cout << "Trail size now: " << trail.size() << "\n";
+	std::cout << "G now: " << G << "\n";
+	std::cout << "Level now: " << depth() << "\n";
+#endif
+
 }
 
 void Solver::learn(std::vector<int>& clause, int d) {
+
+	// We have learned another clause. Record this fact.
+	incrementLearnedClauses();
 
 	// Not unit clause - Install the clause.
 	if (d) {
@@ -390,7 +417,7 @@ void Solver::addDecisionVariableToTrail(int variableNumber) {
 
 	auto& variable = vfv(variableNumber);
 	if (variable.isFree()) {
-		variable.setValue(static_cast<int>(levels.size()));
+		variable.setValue(static_cast<int>(depth()));
 		variable.setTloc(static_cast<int>(trail.size()));
 		variable.setReason(-1);
 		trail.push_back(variable.getCurrentLiteralValue());
@@ -410,7 +437,7 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 
 	auto& variable = vfl(literal);
 	if (variable.isFree()) {
-		variable.setValue(static_cast<int>(levels.size()), literal);
+		variable.setValue(static_cast<int>(depth()), literal);
 		variable.setTloc(static_cast<int>(trail.size()));
 		variable.setReason(reason);
 		trail.push_back(variable.getCurrentLiteralValue());
@@ -419,6 +446,13 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 		if (reason != -1) clauses.at(reason).setReasonFor(variable.getVariableNumber());
 	
 #ifdef DEBUG 
+
+		if (variable.getCurrentLiteralValue() != literal) {
+			std::cout << "Current literal value is: " << variable.getCurrentLiteralValue() << "\n";
+			std::cout << "Literal received was: " << literal << "\n";
+			std::cout << "Why don't these match?\n";
+			std::cin.get();
+		}
 		if (literal != variable.getCurrentLiteralValue()) {
 			std::cout << "Looks like a bug!\n";
 			std::cin.get();
@@ -458,4 +492,7 @@ size_t Solver::nextStamp() {
 // at index 1. Level 0 at index zero is always equal to zero
 // and doesn't count toward the level count. Therefore with only
 // zero in index zero, we have a depth of zero (size - 1).
-int Solver::depth() { return levels.size(); }
+int Solver::depth() { return levels.size() - 1; }
+
+int Solver::getNumberOfLearnedClauses() { return numberLearnedClauses; }
+void Solver::incrementLearnedClauses() { ++numberLearnedClauses; }

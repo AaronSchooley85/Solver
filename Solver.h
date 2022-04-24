@@ -23,6 +23,7 @@ class Solver {
 		// Indices of min and max learned clauses.
 		int minl = 0;
 		int maxl = 0;
+		int numberLearnedClauses = 0;
 
 		// Number of variables in problem instance.
 		int n = -1;
@@ -60,6 +61,9 @@ class Solver {
 		void addVariableToTrail(int v);
 		void addDecisionVariableToTrail(int variableNumber);
 		void addForcedLiteralToTrail(int literal, int reason);
+
+		void incrementLearnedClauses();
+		int  getNumberOfLearnedClauses();
 
 		// Select a free variable from heap and make a decision.
 		void makeADecision();
