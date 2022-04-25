@@ -2,13 +2,14 @@
 #include <iostream>
 #include <random>
 #include <chrono>
+#include <unordered_set>
 
 
 #define DEBUG
 
 // Solver constructor. Initializes variables, loads clauses, and processes
 // unit clauses. 
-Solver::Solver(cnf CNF) {
+Solver::Solver(cnf CNF, int seedArgument) {
 
 	// We will use 1-based indexing to align with Knuth's text.
 	// Create dummy entries here.
@@ -87,8 +88,11 @@ Solver::Solver(cnf CNF) {
 	// Add free variables to heap.
 	std::vector<Variable*> shuffledVariablePointers;
 	for (int i = 1; i < variables.size(); ++i) shuffledVariablePointers.push_back(&variables.at(i));
-	auto seed = std::chrono::system_clock::now().time_since_epoch().count();
-	//seed = 7;
+
+	int seed;
+	if (seedArgument < 0) seed = std::chrono::system_clock::now().time_since_epoch().count();
+	else seed = seedArgument;
+
 	std::shuffle(shuffledVariablePointers.begin(), shuffledVariablePointers.end(), std::default_random_engine(seed));
 	for (auto &v : shuffledVariablePointers) {
 		if (v->isFree()) heap.push(v);
@@ -257,9 +261,9 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 			auto p = (v.getValue() >> 1);
 			if (p > 0) {
 				rescale |= v.bumpActivity(DEL); // Anytime we bump activity we may corrupt heap. Reheapify before popping heap? Set corrupted flag?
-				count += (p == currentDepth);
+				if (p == currentDepth) count++;
 				if (p < currentDepth) {
-					b.push_back(literal);
+					b.push_back(v.getCurrentLiteralValue() ^ 1);
 					dprime = std::max(p, dprime);
 				}
 			}
@@ -466,6 +470,7 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 	
 #ifdef DEBUG 
 
+
 		if (variable.getCurrentLiteralValue() != literal) {
 			std::cout << "Current literal value is: " << variable.getCurrentLiteralValue() << "\n";
 			std::cout << "Literal received was: " << literal << "\n";
@@ -481,9 +486,11 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 
 	}
 
+
 #ifdef DEBUG
 	else {
 		std::cout << "Placing a variable which is not free on trail!\n";
+		std::cout << "Attempted to place literal " << literal << " but its already at TLOC: " << variable.getTloc() << "\n";
 		std::cin.get();
 		exit(1);
 	}
@@ -508,3 +515,13 @@ int Solver::depth() { return levels.size() - 1; }
 
 int Solver::getNumberOfLearnedClauses() { return numberLearnedClauses; }
 void Solver::incrementLearnedClauses() { ++numberLearnedClauses; }
+
+bool Solver::checkVectorForDuplicates(std::vector<int>& v) {
+
+	for (size_t i = 0, len = v.size(); i < len; ++i) {
+		for (size_t j = i + 1; j < len; ++j) {
+			if (v[j] == v[i] || v[j] == (v[i] ^ 1)) return true;
+		}
+	}
+	return false;
+}

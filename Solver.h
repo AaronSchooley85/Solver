@@ -16,7 +16,7 @@ class Solver {
 
 	public:
 
-		Solver(cnf);
+		Solver(cnf, int seedArgument = -1);
 		std::vector<bool> Solve();
 
 	private:
@@ -78,6 +78,9 @@ class Solver {
 
 		// Install the newly learned clause from conflict resolution.
 		void learn(std::vector<int>& clause, int dprime);
+
+		// Diagnostic method for checking for duplicates in vector.
+		bool checkVectorForDuplicates(std::vector<int>&);
 
 		// Convenience functions
 		Variable& vfl(int literal); // Variable object from literal.
