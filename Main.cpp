@@ -28,11 +28,11 @@ int main() {
 	//std::vector<std::vector<int>> CNF{ {1,2}, {-1, 3}, {2, -3}, {-2, -4}, {-3, 4} }; // 1 -> false, 2 -> true, 3 -> false, 4 -> false
 	//std::vector<std::vector<int>> CNF{ {1,2,-3} , {2,3,-4} , {3,4,1} , {4,-1,2} , {-1,-2,3} , {-2,-3,4} , {-3,-4,-1} }; // Solution 1 -> false, 2 -> true, 4 -> true
 	//std::vector<std::vector<int>> CNF{ {1,2,-3} , {2,3,-4} , {3,4,1} , {4,-1,2} , {-1,-2,3} , {-2,-3,4} , {-3,-4,-1} , {-4,1,-2} }; // Unsat
-	auto CNF = readDimacs("C:/Users/aaron/Desktop/dimacs/jnh1_sat.cnf");
-	for (int i = 0; i < 1000; ++i) {
+	auto CNF = readDimacs("C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf");
+	for (int i = 0; i < 10000; ++i) {
 
 		std::cout << "\nRun " << i << "\n";
-		Solver S(CNF, i);
+		Solver S(CNF);
 		auto solution = S.Solve();
 		if (solution.front()) {
 			std::cout << "SATISFIABLE\n";
@@ -45,7 +45,7 @@ int main() {
 			std::cout << "UNSATISFIABLE\n";
 		}
 	}
-	std::cout << "Complete" << "\n";
+	std::cout << "\n\nComplete" << "\n";
 	std::cin.get();
 	return 0;
 }
