@@ -45,6 +45,7 @@ public:
 
 	// Add a clause number to a watch list.
 	void addToWatch(int clauseNumber, bool value);
+	void removeFromWatch(int clauseNumber, bool value);
 
 	// Get all clauses which watched the variable but with
 	// the opposite polarity of what it is assigned.

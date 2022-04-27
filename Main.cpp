@@ -36,10 +36,10 @@ int main() {
 		auto solution = S.Solve();
 		if (solution.front()) {
 			std::cout << "SATISFIABLE\n";
-			for (auto it = solution.begin() + 1; it != solution.end(); ++it) {
+			/*for (auto it = solution.begin() + 1; it != solution.end(); ++it) {
 				std::cout << it - solution.begin() << ((*it) ? " true" : " false");
 				std::cout << "\n";
-			}
+			}*/
 		}
 		else {
 			std::cout << "UNSATISFIABLE\n";

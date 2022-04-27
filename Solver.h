@@ -82,6 +82,8 @@ class Solver {
 		// Diagnostic method for checking for duplicates in vector.
 		bool checkVectorForDuplicates(std::vector<int>&);
 
+		void printVector(std::vector<int>&);
+
 		// Convenience functions
 		Variable& vfl(int literal); // Variable object from literal.
 		Variable& vfv(int variable);// Variable object from variable number.

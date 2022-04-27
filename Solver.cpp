@@ -5,7 +5,7 @@
 #include <unordered_set>
 
 
-#define DEBUG
+//#define DEBUG
 
 // Solver constructor. Initializes variables, loads clauses, and processes
 // unit clauses. 
@@ -42,7 +42,7 @@ Solver::Solver(cnf CNF, int seedArgument) {
 				break;
 
 			// Unit clauses go strait to trail if no contradiction found, otherwise fail.
-			// Watch lists are not set for unit clauses. TODO - Verify.
+			// Watch lists are not set for unit clauses.
 			case 1: {
 				auto literal = encoded.front();
 				auto& variable = vfl(literal);
@@ -58,7 +58,7 @@ Solver::Solver(cnf CNF, int seedArgument) {
 				}
 				else {
 					// Add the literal to trail. No reason for unit clauses.
-					addForcedLiteralToTrail(encoded.front(), -1);
+					addForcedLiteralToTrail(literal, -1);
 				}
 				break; }
 
@@ -67,8 +67,8 @@ Solver::Solver(cnf CNF, int seedArgument) {
 				auto clauseNumber = clauses.size();
 				clauses.push_back(Clause(encoded));
 				clauses.back().setClauseNumber(clauseNumber);
-				auto& l0 = clauses.back().getLiterals().at(0);
-				auto& l1 = clauses.back().getLiterals().at(1);
+				auto l0 = clauses.back().getLiterals().at(0);
+				auto l1 = clauses.back().getLiterals().at(1);
 				auto& v0 = vfl(l0);
 				auto& v1 = vfl(l1);
 				v0.addToWatch(clauseNumber, l0 % 2 == 0);
@@ -89,10 +89,12 @@ Solver::Solver(cnf CNF, int seedArgument) {
 	std::vector<Variable*> shuffledVariablePointers;
 	for (int i = 1; i < variables.size(); ++i) shuffledVariablePointers.push_back(&variables.at(i));
 
+	// Get our random generator seed. Use supplied argument if provided, else generate a random seed.
 	int seed;
 	if (seedArgument < 0) seed = std::chrono::system_clock::now().time_since_epoch().count();
 	else seed = seedArgument;
 
+	// Shuffle the variables to add to the heap. This prevents getting stuck in "ruts" if invoked multiple times.
 	std::shuffle(shuffledVariablePointers.begin(), shuffledVariablePointers.end(), std::default_random_engine(seed));
 	for (auto &v : shuffledVariablePointers) {
 		if (v->isFree()) heap.push(v);
@@ -112,7 +114,7 @@ std::vector<bool> Solver::Solve() {
 			// If we are finished.
 			if (trail.size() == n) {
 				
-				// TODO - construct and return boolean vector.
+				// Construct and return boolean vector.
 				std::vector<bool> solution(n + 1);
 				solution.front() = true;
 				for (auto t : trail) solution.at(t >> 1) = t & 1 ? false : true;
@@ -122,12 +124,14 @@ std::vector<bool> Solver::Solve() {
 			else {
 
 				// Select a free variable from the heap and place on trail.
-				// Will result in F = G + 1.
+				// Will result in F = G + 1. i.e. will increment F.
 				makeADecision();
 			}
 		}
 
 		// Process next literal on trail pointed at by G and increment G.
+		// If a conflict occurs, a new literal will be placed on the trail and
+		// G will be pointing to it already. Immediately take from trail.
 		bool conflictEncountered = false;
 		do {
 			auto literal = trail.at(G++);
@@ -139,37 +143,65 @@ std::vector<bool> Solver::Solve() {
 }
 
 // Knuth step C4.
-// Check if the literal being processed forces other literals to take values.
+// Check if the literal being processed forces other literals to take values or falsifies
+// a clause. If so, resolve that conflict. 
 // Return value is status of conflict. True -> conflict detected. False -> no conflict.
 bool Solver::checkForcing(int literal) {
 
-	// Get the variable object corresponding to the literals.
+#ifdef DEBUG
+	std::cout << "Processing literal " << literal << "\n";
+#endif
+
+	// Get the variable object corresponding to the literal.
 	auto& variable = vfl(literal);
 
-	// Algorithm C requires the literal at index 1 of the clause to be the contradicted literal.
-	auto contradictedLiteral = literal ^ 1;
+	// Get the complement of the literal. 
+	int contradictedLiteral = literal ^ 1;
 
-	// Process each clause which watches the contradicted polarity of the literal.
+	// Get indices of each clause which watches the contradicted polarity of the literal.
 	auto& contradictedWatchers = variable.getContradictedWatchers();
+
+	// Create a copy to iterate through. This is so we don't modify the same collection we are iterating through.
 	std::vector<int> contradictedWatcherIndicesToProcess(contradictedWatchers.begin(), contradictedWatchers.end());
 
 	// Inspect each contradicted clause. Below we remove any if necessary from variable's collection.
 	for (auto contradictedClauseNumber : contradictedWatcherIndicesToProcess){
 
-		// Get the clause which contains the contradicted literal and its literals.
+		// Using the clause index, get the clause object which contains the contradicted literal.
 		auto& contradictedClause = clauses.at(contradictedClauseNumber);
+
+		// Get the literals which comprise this clause.
 		auto& contradictedClauseLiterals = contradictedClause.getLiterals();
 
+		// Algorithm C requires the literal at index 1 of the clause to be the contradicted literal.
 		// Swap first two literals if the element at index 1 is not the contradicted literal.
 		if (contradictedClauseLiterals.at(1) != contradictedLiteral) {
 			std::iter_swap(contradictedClauseLiterals.begin(), contradictedClauseLiterals.begin() + 1);
 		}
 
+#ifdef DEBUG
+		// Sanity check.
+		if (contradictedClauseLiterals.at(1) != contradictedLiteral) {
+			std::cout << "At this point l1 should be the complement of the selected literal.\n";
+		std::cout << "Contradicted clause number: " << contradictedClauseNumber << "\n";
+		std::cout << "Contradicted clause literals: ";
+			printVector(contradictedClauseLiterals);
+			std::cin.get();
+		}
+
+		std::cout << "Contradicted clause number: " << contradictedClauseNumber << "\n";
+		std::cout << "Contradicted clause literals: ";
+		printVector(contradictedClauseLiterals);
+#endif
+
 		// If literal at index 0 is not true (i.e. false or unset).
 		auto l0 = contradictedClauseLiterals.front();
 		auto& v0 = vfl(l0);
+
+		// If the first literal at index 0 is true, nothing must be done.
 		if (!v0.isTrue(l0)) {
 			
+			// We will try to swap the literal at index 1 with another which is NOT FALSE.
 			bool swapSuccess = false;
 			for (size_t i = 2, len = contradictedClauseLiterals.size(); i < len; ++i) {
 
@@ -180,35 +212,45 @@ bool Solver::checkForcing(int literal) {
 				// If the new variable has not been set false.
 				if (!vx.isFalse(lx)) {
 
+#ifdef DEBUG
+					std::cout << "Swapping l1 with " << lx << "\n";
+#endif
+
 					// Swap elements, add clause to new watched variable, and remove from old variable's watch.
 					std::swap(contradictedClauseLiterals.at(1), contradictedClauseLiterals.at(i));
-					vx.addToWatch(contradictedClause.getClauseNumber(), !(lx & 1));
-
-					// Remove clause number from watch list of previously watched variable. Exchange and pop off back.
-				    auto indexToRemove = std::find(contradictedWatchers.begin(), contradictedWatchers.end(), contradictedClauseNumber);
-					std::iter_swap(indexToRemove, contradictedWatchers.end() -1);
-					contradictedWatchers.pop_back();
+					vx.addToWatch(contradictedClauseNumber, !(lx & 1));
+					variable.removeFromWatch(contradictedClauseNumber, !(contradictedLiteral & 1));
 					swapSuccess = true;
 					break;
 				}
 			}
 
 			// If we could not swap with another variable, we must check literal at clause index 0.
+			// Our only hope is that it is free and can therefore be set true.
 			if (!swapSuccess) {
 
-				// If v0 is free, set it such that it is true. Note that we could not change the
-				// watched literal which was in contradiction. But because l0 is now true, this
-				// step C4 will skip this clause and not care (see above logic).
 				if (v0.isFree()) {
+#ifdef DEBUG
+					std::cout << "Could not swap. Adding " << l0 << " to trail.\n";
+#endif
 					addForcedLiteralToTrail(l0, contradictedClauseNumber);
 				}
 				// We must resolve a conflict.
 				else {
+#ifdef DEBUG
+					std::cout << "Could not swap. Resolving conflict.\n";
+#endif
 					resolveConflict(contradictedClauseLiterals);
 					return true;
 				}
 			}
 		}
+#ifdef DEBUG
+		else
+		{
+			std::cout << "l0 true, doing nothing.\n";
+		}
+#endif
 	}
 
 	return false;
@@ -219,10 +261,17 @@ void Solver::makeADecision() {
 
 	// Record trail index at which this level begins.
 	levels.push_back(trail.size());
+
+#ifdef DEBUG
+	std::cout << "########## " << "LEVEL " << depth() << " ###########\n";
+#endif
+
+	// Repeatedly pop a variable from the heap until we find one
+	// that is free.
 	Variable* nextFree = nullptr;
 	do {
 		nextFree = heap.pop();
-	} while (!nextFree->isFree());
+	} while (!(nextFree->isFree()));
 	
 	// Add the new decision variable to the trail.
 	// This will cause F = G + 1
@@ -232,6 +281,22 @@ void Solver::makeADecision() {
 // Construct a new clause.
 void Solver::resolveConflict(const std::vector<int>& clause) {
 	
+#ifdef DEBUG
+	std::cout << "Trail: ";
+	if (checkVectorForDuplicates(trail)) {
+		std::cout << "ah ha!";
+		std::cin.get();
+	}
+	for (auto& t : trail) {
+		std::cout << t << "(" << vfl(t).getTloc() << ", " << (vfl(t).getValue() >> 1) << "), ";
+	}
+	std::cout << "\n";
+	std::cout << "Levels: ";
+	printVector(levels);
+
+	std::cout << "Conflict encountered at level " << depth() << "\n";
+#endif
+
 	// If there have been no decision levels created, we failed.
 	if (depth() == 0) {
 		solutionFailed = true;
@@ -270,12 +335,6 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 		}
 	};
 
-#ifdef DEBUG
-	if (dprime >= currentDepth) {
-		std::cout << "d' is supposed to be less than depth\n";
-		std::cin.get();
-	}
-#endif
 	// Apply blit algorithm to all literals at index GREATER THAN 0 in clause.
 	for (size_t i = 1, len = clause.size(); i < len; ++i) blit(clause.at(i));
 
@@ -299,6 +358,10 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 		t = std::max(v.getTloc(), t); // Am I using 'max' correctly?
 	}
 
+#ifdef DEBUG
+	std::cout << "Max T: " << t << "\n";
+#endif
+
 	while (count > 0) {
 		auto l = trail.at(t--); // Get literal furthest up the trail.
 		auto& v = vfl(l);
@@ -315,13 +378,37 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 		}
 	}
 
+#ifdef DEBUG
+	// dprime is where we will jump back to. It needs to be less than current depth.
+	if (dprime >= currentDepth) {
+		std::cout << "d' is supposed to be less than depth\n";
+		std::cin.get();
+	}
+#endif
+
 	// Find the last stamped literal.
 	int lprime = -1;
 	do {
 		lprime = trail.at(t--);
 	} while (vfl(lprime).getStamp() != stamp);
 
+#ifdef DEBUG
+	if (dprime >= currentDepth) {
+		std::cout << "d' should be less than the learned clause literal l0.\n";
+		std::cin.get();
+	}
+	else {
+		std::cout << "Learned clause l0 is " << (lprime ^ 1) << " at level " << (vfl(lprime).getValue() >> 1) << "\n";
+		std::cout << "d' was found to be " << dprime << "\n";
+	}
+#endif
 	b.front() = lprime ^ 1; // Overwrite placeholder. 
+
+#ifdef DEBUG
+	std::cout << "Learned clause: ";
+	printVector(b);
+	std::cout << "\n";
+#endif
 
 	// Remove literals from the trail.
 	backjump(dprime);
@@ -337,7 +424,8 @@ void Solver::backjump(int dprime) {
 
 #ifdef DEBUG 
 	std::cout << "Backjumping to d' : " << dprime << "\n";
-	std::cout << "Target size is: " << target << "\n";
+	std::cout << "Current trail size is: " << trail.size() << "\n";
+	std::cout << "Target trail size is: " << target << "\n";
 #endif
 
 	// Remove elements until we are left with 'F' pointing to the next free
@@ -357,7 +445,22 @@ void Solver::backjump(int dprime) {
 				      // Step C9 - 'learn' will place that next literal.
 
 	// Set d = d'.
-	levels.resize(dprime + 1);
+	if (dprime >= depth()) {
+		std::cout << "dprime should be smaller.\n";
+		std::cin.get();
+	}
+	else {
+		levels.resize(dprime + 1);
+	}
+
+#ifdef DEBUG
+	for (auto t : trail) {
+		if ((vfl(t).getValue() >> 1) > dprime) {
+			std::cout << "Literal on trail has depth greater than current depth\n";
+			std::cin.get();
+		}
+	}
+#endif
 
 #ifdef DEBUG
 	std::cout << "Trail size now: " << trail.size() << "\n";
@@ -367,31 +470,32 @@ void Solver::backjump(int dprime) {
 
 }
 
-void Solver::learn(std::vector<int>& clause, int d) {
+void Solver::learn(std::vector<int>& clause, int dprime) {
 
 	// We have learned another clause. Record this fact.
 	incrementLearnedClauses();
 
 	// Not unit clause - Install the clause.
-	if (d) {
+	if (dprime) {
 
 		int l0 = clause.front();
-		int clauseNumber = clauses.size();
-		clauses.push_back(Clause(clause));
-		clauses.back().setClauseNumber(clauseNumber);
-		addForcedLiteralToTrail(l0 , clauseNumber);
 
 		// Ensure we are watching literals defined on level d.
 		bool found = false;
 		for (size_t i = 1, len = clause.size(); i < len; ++i) {
 			auto& v = vfl(clause.at(i));
 			auto level = v.getValue() >> 1;
-			if (level == d) {
+			if (level == dprime) {
 				found = true;
 				std::iter_swap(clause.begin() + 1, clause.begin() + i);
 				break;
 			}
 		}
+
+		int clauseNumber = clauses.size();
+		clauses.push_back(Clause(clause));
+		clauses.back().setClauseNumber(clauseNumber);
+		addForcedLiteralToTrail(l0 , clauseNumber);
 
 		if (found) {
 			// Set the watches for the new clause. 
@@ -525,3 +629,20 @@ bool Solver::checkVectorForDuplicates(std::vector<int>& v) {
 	}
 	return false;
 }
+
+void Solver::printVector(std::vector<int>& v) {
+	
+	for (int i = 0; i < v.size(); ++i) {
+		std::cout << v[i];
+		if (i < (v.size() - 1)) std::cout << ", ";
+	}
+	std::cout << "\n";
+}
+
+/* 
+
+	I am learning a clause while on depth d where l0 is defined at level d-1. l0 is supposed to be defined on level d and all other literals in the learned
+	clause are on lower levels. I have confirmed that all the other literals are indeed on lower levels. The only problem is l0. 
+
+	l0 is 119 on both the contradicted clause AND the learned clause. Seems suspicious that l0 would match on both.
+*/

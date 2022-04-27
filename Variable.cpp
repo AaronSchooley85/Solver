@@ -24,7 +24,7 @@ void Variable::setOval(int v) { oval = v; }
 
 // Check the truth value of a literal.
 bool Variable::isTrue(int literal) { return ((val >= 0) && ((val + literal) % 2 == 0)); }
-bool Variable::isFalse(int literal) { return ((val >=0) && ((val + literal) & 1)); }
+bool Variable::isFalse(int literal) { return ((val >=0) && ((val + literal) % 2 != 0)); }
 
 std::vector<int>& Variable::getContradictedWatchers(){ return (val & 1) ? watchingTrue : watchingFalse; }
 
@@ -64,6 +64,23 @@ bool Variable::isFree() { return val < 0; }
 void Variable::addToWatch(int clauseNumber, bool value) {
 	if (value) watchingTrue.push_back(clauseNumber);
 	else watchingFalse.push_back(clauseNumber);
+}
+
+void Variable::removeFromWatch(int clauseNumber, bool value) {
+
+	auto& contradictedWatchers = value ? watchingTrue : watchingFalse;
+
+	// Remove clause number from watch list of previously watched variable. Exchange and pop off back.
+	auto indexToRemove = std::find(contradictedWatchers.begin(), contradictedWatchers.end(), clauseNumber);
+	if (indexToRemove != contradictedWatchers.end()) {
+
+		std::iter_swap(indexToRemove, contradictedWatchers.end() -1);
+		contradictedWatchers.pop_back();
+	}
+	else {
+		std::cout << "Fatal bug. Did not find the clause number to remove.\n";
+		std::cin.get();
+	}
 }
 
 // Getter and setter for stamp value.
