@@ -114,22 +114,39 @@ std::vector<bool> Solver::Solve() {
 		// F == G ? 
 		if (G == trail.size()) {
 
-			// If we are finished.
+
+			// If we are finished. I.e the number of variables on the trail
+			// is equal to the number of variables in the problem.
 			if (trail.size() == n) {
 				
-				// Construct and return boolean vector.
-				std::vector<bool> solution(n + 1);
-				solution.front() = true;
-				for (auto t : trail) solution.at(t >> 1) = t & 1 ? false : true;
-				return solution;
-			}
-			// Not finished. We need to make a decision.
-			else {
+				// If not a full run we genuinely solved the problem.
+				if (!fullRun) {
 
-				// Select a free variable from the heap and place on trail.
-				// Will result in F = G + 1. i.e. will increment F.
-				makeADecision();
+					// Construct and return boolean vector.
+					std::vector<bool> solution(n + 1);
+					solution.front() = true;
+					for (auto t : trail) solution.at(t >> 1) = t & 1 ? false : true;
+					return solution;
+				}
+				// Otherwise we "succeeded" because we ignored conflicts for a full run.
+				// Beging resolving conflicts and purging useless clauses.
+				else {
+					fullRun = false;
+
+
+				}
 			}
+			// Check if it's time to get rid of useless learned clauses.
+			else if ( false && numberLearnedClauses > purgeThreshold) {
+				fullRun = true;
+				for (auto& c : conflicts) c = 0;
+			}
+
+			// Not finished. We need to make a decision.
+			// Select a free variable from the heap and place on trail.
+			// Will result in F = G + 1. i.e. will increment F.
+			makeADecision();
+			
 		}
 
 		// Process next literal on trail pointed at by G and increment G.
@@ -243,8 +260,36 @@ bool Solver::checkForcing(int literal) {
 #ifdef DEBUG
 					std::cout << "Could not swap. Resolving conflict.\n";
 #endif
-					resolveConflict(contradictedClauseLiterals);
-					return true;
+					// If there have been no decision levels created, we failed.
+					if (depth() == 0) {
+						solutionFailed = true;
+						return true;
+					}
+					// We resolve conflicts if we are not at level 0 and not doing a full run.
+					else if (!fullRun) {
+
+						// Learn a new clause and return the depth we must return to for installation.
+						int dprime = resolveConflict(contradictedClauseLiterals);
+
+						// Remove literals from the trail.
+						backjump(dprime);
+
+						// Shorted the learned clause for efficiency.
+						removeRedundantLiterals();
+
+						// Install the new clause.
+						learn(dprime);
+
+						return true;
+					}
+					// On full runs we just ignore the conflict and move on.
+					else {
+						// Record first conflict for this level.
+						int d = depth();
+						if (conflicts.at(d) == 0) conflicts.at(d) = contradictedClauseNumber;
+						return false;
+					}
+
 				}
 			}
 		}
@@ -266,7 +311,12 @@ void Solver::makeADecision() {
 	levels.push_back(trail.size());
 
 	// Should this be done here?
-	pushLevelStamp(0);
+	// Make sure there's a spot in LS for every level.
+	while (LS.size() <= depth()) pushLevelStamp(0); 
+
+	// Ensure we have a large enough conflicts vector.
+	// Will be zeroed at the beginning of each full run.
+	while (conflicts.size() <= depth()) conflicts.push_back(0);
 
 #ifdef DEBUG
 	std::cout << "########## " << "LEVEL " << depth() << " ###########\n";
@@ -285,7 +335,7 @@ void Solver::makeADecision() {
 }
 
 // Construct a new clause.
-void Solver::resolveConflict(const std::vector<int>& clause) {
+int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	
 #ifdef DEBUG
 	std::cout << "Trail: ";
@@ -303,16 +353,11 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	std::cout << "Conflict encountered at level " << depth() << "\n";
 #endif
 
-	// If there have been no decision levels created, we failed.
-	if (depth() == 0) {
-		solutionFailed = true;
-		return;
-	}
-
 	// Data needed for blit routine below.
 	int count = 0;
-	std::vector<int> b{ -1 }; // 'r' is the size of b. Placeholder at index 0.
-	size_t stamp = nextStamp();
+	b.clear();
+	b.push_back(-1);
+	nextStamp();
 	int dprime = 0;
 
 	// Process the first literal in the clause.
@@ -321,7 +366,9 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	v0.setStamp(stamp); // Stamped here, not in 'blit' so count is not affected. 
 	bool rescale = false;
 	rescale |= v0.bumpActivity(DEL);
-	int currentDepth = depth();
+
+	// If depth was specified use that depth, otherwise get it from level vector size.
+	int currentDepth = d < 0 ? depth() : d;
 
 	// Do we need to zero the LS array before blit runs? !!!!!!!!!!!!!!!!!!!!!!!!!!
 	for (auto& x : LS) x = 0;
@@ -335,7 +382,7 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 			auto p = (v.getValue() >> 1);
 			if (p > 0) {
 				rescale |= v.bumpActivity(DEL); // Anytime we bump activity we may corrupt heap. Reheapify before popping heap? Set corrupted flag?
-				if (p == currentDepth) count++;
+				count += (p == currentDepth);
 				if (p < currentDepth) {
 					b.push_back(v.getCurrentLiteralValue() ^ 1);
 					dprime = std::max(p, dprime);
@@ -421,18 +468,15 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	std::cout << "\n";
 #endif
 
-	// Remove literals from the trail.
-	backjump(dprime);
-
-	removeRedundantLiterals(b, stamp);
-
-	// Install the new clause.
-	learn(b, dprime);
+	return dprime;
 }
 
 
 // Improve processing speed by removing redundant clauses.
-void Solver::removeRedundantLiterals(std::vector<int>& clause, int stamp) {
+void Solver::removeRedundantLiterals() {
+
+	// The learned clause is stored in the member variable 'b'.
+	auto& clause = b;
 
 	int i = 1;
 	while (i < clause.size()) {
@@ -531,14 +575,7 @@ void Solver::backjump(int dprime) {
 	G = trail.size(); // G now points to the next literal to be placed on the trail. 
 				      // Step C9 - 'learn' will place that next literal.
 
-	// Set d = d'.
-	if (dprime >= depth()) {
-		std::cout << "dprime should be smaller.\n";
-		std::cin.get();
-	}
-	else {
-		levels.resize(dprime + 1);
-	}
+	levels.resize(dprime + 1);
 
 #ifdef DEBUG
 	for (auto t : trail) {
@@ -557,7 +594,10 @@ void Solver::backjump(int dprime) {
 
 }
 
-void Solver::learn(std::vector<int>& clause, int dprime) {
+void Solver::learn(int dprime) {
+
+	// Access learned clause from member variable 'b'.
+	auto& clause = b;
 
 	// We have learned another clause. Record this fact.
 	incrementLearnedClauses();
@@ -693,9 +733,8 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 Variable& Solver::vfl(int literal) { return variables.at(literal >> 1); }
 Variable& Solver::vfv(int variableNumber) { return variables.at(variableNumber); }
 
-size_t Solver::nextStamp() {
+void Solver::nextStamp() {
 	stamp += 3;
-	return stamp;
 }
 
 // Index of levels is the same as level. So level 1 begins
@@ -703,6 +742,46 @@ size_t Solver::nextStamp() {
 // and doesn't count toward the level count. Therefore with only
 // zero in index zero, we have a depth of zero (size - 1).
 int Solver::depth() { return levels.size() - 1; }
+
+void Solver::purgeProcessing() {
+
+	// Initialize minimum to largest possible value.
+	int minDprime = depth();
+
+	std::vector<int> clauseIndicesToInstall;
+
+	// Visit conflicts in reverse order.
+	for (size_t d = conflicts.size() - 1; d >= 0; --d) {
+		
+		// If a conflict clause was recorded at depth 'd'.  
+		if (conflicts.at(d) > 0) {
+
+			int conflictClauseIndex = conflicts.at(d);
+			auto& conflictClause = clauses.at(conflictClauseIndex);
+
+			// Resolved conflict is stored in 'b' vector.
+			int dprime = resolveConflict(conflictClause.getLiterals(), d);
+			removeRedundantLiterals();
+
+			// If new minimum, record it and restart install vector.
+			if (dprime < minDprime) {
+				clauseIndicesToInstall.clear();
+				clauseIndicesToInstall.push_back(conflictClauseIndex);
+				minDprime = dprime;
+			}
+			// All vectors of minimum dprime are installed at the end.
+			else if (dprime == minDprime) {
+				clauseIndicesToInstall.push_back(conflictClauseIndex);
+			}
+		}
+	}
+
+	// Install all literals defined at minimum dprime.
+	backjump(minDprime);
+
+	learn(minDprime);
+
+}
 
 int Solver::getNumberOfLearnedClauses() { return numberLearnedClauses; }
 void Solver::incrementLearnedClauses() { ++numberLearnedClauses; }

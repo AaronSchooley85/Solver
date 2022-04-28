@@ -45,8 +45,20 @@ class Solver {
 		std::vector<int> trail; // F = trail.size()
 		std::vector<int> levels;
 
+		// Reusable vector for temporarily holding learned clauses.
+		std::vector<int> b;
+
 		// Level stamps.
 		std::vector<int> LS;
+
+		// Threshold at which we purge useless learned clauses.
+		int purgeThreshold = 1000;
+
+		// Flag indicating "full runs" being performed.
+		bool fullRun = false;
+
+		// Records the first conflict encountered at each level during full runs.
+		std::vector<int> conflicts;
 
 		// rho is the damping factor used to adjust variable activities.
 		double rho = 0.95;
@@ -80,17 +92,20 @@ class Solver {
 		bool checkForcing(int literal);
 
 		// Resolve conflicts which are encountered by force checking.
-		void resolveConflict(const std::vector<int>& clause);
+		int resolveConflict(const std::vector<int>& clause, int depth = -1);
 
 		// Shorten clauses by removing redundancy. 
-		void removeRedundantLiterals(std::vector<int>& clause, int stamp);
+		void removeRedundantLiterals();
 		bool red(int literal, size_t stamp);
 
 		// Remove literals from the trail until the specified level is reached.
 		void backjump(int dprime);
 
 		// Install the newly learned clause from conflict resolution.
-		void learn(std::vector<int>& clause, int dprime);
+		void learn(int dprime);
+		
+		// Resolve backlogged conflicts and calculate range scores.
+		void purgeProcessing();
 
 		// Diagnostic method for checking for duplicates in vector.
 		bool checkVectorForDuplicates(std::vector<int>&);
@@ -100,7 +115,7 @@ class Solver {
 		// Convenience functions
 		Variable& vfl(int literal); // Variable object from literal.
 		Variable& vfv(int variable);// Variable object from variable number.
-		size_t nextStamp();
+		void nextStamp();
 		int depth();
 };
 

@@ -55,7 +55,7 @@ int main() {
 
 		int numRuns = 10000;
 		int tenth = numRuns / 10;
-		for (int i = 0; i < 10000; ++i) {
+		for (int i = 0; i < numRuns; ++i) {
 
 			if ( i && i % tenth == 0) std::cout << "X";
 
