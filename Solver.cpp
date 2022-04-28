@@ -132,12 +132,12 @@ std::vector<bool> Solver::Solve() {
 				// Beging resolving conflicts and purging useless clauses.
 				else {
 					fullRun = false;
-
-
+					purgeProcessing();
+					continue;
 				}
 			}
 			// Check if it's time to get rid of useless learned clauses.
-			else if ( false && numberLearnedClauses > purgeThreshold) {
+			else if ( !fullRun && numberLearnedClauses > purgeThreshold) {
 				fullRun = true;
 				for (auto& c : conflicts) c = 0;
 			}
@@ -746,17 +746,22 @@ int Solver::depth() { return levels.size() - 1; }
 void Solver::purgeProcessing() {
 
 	// Initialize minimum to largest possible value.
-	int minDprime = depth();
+	int minDprime = INT32_MAX;
 
 	std::vector<int> clauseIndicesToInstall;
 
 	// Visit conflicts in reverse order.
-	for (size_t d = conflicts.size() - 1; d >= 0; --d) {
+	for (auto i = conflicts.rbegin(); i != conflicts.rend(); i++){
 		
-		// If a conflict clause was recorded at depth 'd'.  
-		if (conflicts.at(d) > 0) {
+		// Get the depth which is the index of the vector.
+		int d = i - conflicts.rend() + 1;
+		d = -1 * d;
 
-			int conflictClauseIndex = conflicts.at(d);
+		int conflictClauseIndex = *i;
+
+		// If a conflict clause was recorded at depth 'd'.  
+		if (conflictClauseIndex > 0) {
+
 			auto& conflictClause = clauses.at(conflictClauseIndex);
 
 			// Resolved conflict is stored in 'b' vector.
