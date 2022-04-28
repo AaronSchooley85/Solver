@@ -45,6 +45,9 @@ class Solver {
 		std::vector<int> trail; // F = trail.size()
 		std::vector<int> levels;
 
+		// Level stamps.
+		std::vector<int> LS;
+
 		// rho is the damping factor used to adjust variable activities.
 		double rho = 0.95;
 
@@ -64,6 +67,12 @@ class Solver {
 		void incrementLearnedClauses();
 		int  getNumberOfLearnedClauses();
 
+		// Modify LS vector.
+		void pushLevelStamp(int value);
+		void popLevelStamp();
+		int getLevelStamp(int index);
+		void setLevelStamp(int index, int value);
+
 		// Select a free variable from heap and make a decision.
 		void makeADecision();
 
@@ -72,6 +81,10 @@ class Solver {
 
 		// Resolve conflicts which are encountered by force checking.
 		void resolveConflict(const std::vector<int>& clause);
+
+		// Shorten clauses by removing redundancy. 
+		void removeRedundantLiterals(std::vector<int>& clause, int stamp);
+		bool red(int literal, size_t stamp);
 
 		// Remove literals from the trail until the specified level is reached.
 		void backjump(int dprime);

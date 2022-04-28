@@ -81,9 +81,12 @@ Solver::Solver(cnf CNF, int seedArgument) {
 
 	// Record the number of variables in the problem.
 	n = variables.size() - 1;
+
+	/*
 	std::cout << "Number of variables: " << n << "\n";
 	std::cout << "Number of clauses: " << clauses.size() - 1 + trail.size() << "\n";
 	std::cout << "Number of unit clauses: " << trail.size() << "\n";
+	*/
 
 	// Add free variables to heap.
 	std::vector<Variable*> shuffledVariablePointers;
@@ -262,6 +265,9 @@ void Solver::makeADecision() {
 	// Record trail index at which this level begins.
 	levels.push_back(trail.size());
 
+	// Should this be done here?
+	pushLevelStamp(0);
+
 #ifdef DEBUG
 	std::cout << "########## " << "LEVEL " << depth() << " ###########\n";
 #endif
@@ -317,6 +323,9 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	rescale |= v0.bumpActivity(DEL);
 	int currentDepth = depth();
 
+	// Do we need to zero the LS array before blit runs? !!!!!!!!!!!!!!!!!!!!!!!!!!
+	for (auto& x : LS) x = 0;
+
 	// Local function to process 'b' literals.
 	auto blit = [&](int literal) {
 
@@ -330,6 +339,8 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 				if (p < currentDepth) {
 					b.push_back(v.getCurrentLiteralValue() ^ 1);
 					dprime = std::max(p, dprime);
+					int levelStamp = getLevelStamp(p);
+					if (levelStamp <= stamp) setLevelStamp(p, stamp + (levelStamp == stamp));
 				}
 			}
 		}
@@ -413,9 +424,85 @@ void Solver::resolveConflict(const std::vector<int>& clause) {
 	// Remove literals from the trail.
 	backjump(dprime);
 
+	removeRedundantLiterals(b, stamp);
+
 	// Install the new clause.
 	learn(b, dprime);
 }
+
+
+// Improve processing speed by removing redundant clauses.
+void Solver::removeRedundantLiterals(std::vector<int>& clause, int stamp) {
+
+	int i = 1;
+	while (i < clause.size()) {
+
+		int bi = clause.at(i);
+		int level = vfl(bi).getValue() >> 1;
+		int levelStamp = getLevelStamp(level);
+
+		// Redundant.                        bi or bi ^ 1 ? 
+		if (levelStamp == (stamp + 1) && red(bi, stamp)) {
+
+			std::iter_swap(clause.begin() + i, clause.end() - 1);
+			clause.pop_back();
+
+			// Don't increment index. Swap placed next literal at index i.
+		}
+		// Not redundant. Incrment index.
+		else {
+			++i;
+		}
+	}
+}
+
+bool Solver::red(int lit, size_t stamp){
+
+	auto& v0 = vfl(lit);
+
+	// If l is a decision literal, return false.
+	int reasonIndex = v0.getReason();
+	if (reasonIndex == -1) return false;
+
+	// Get the literals which comprise the clause.
+	auto& reasonLiterals = clauses.at(reasonIndex).getLiterals();
+
+	// Iterate through all elements except the first.
+	for (size_t i = 1, len = reasonLiterals.size(); i < len; ++i) {
+
+		int l = reasonLiterals.at(i);
+		auto& v = vfl(l);
+		int level = v.getValue() >> 1;
+		if (level > 0) {
+
+			int vstamp = v.getStamp();
+			if (vstamp == (stamp + 2)) return false;                       // l or l^ 1 ?
+			else if (vstamp < stamp && ((getLevelStamp(level) < stamp) || !red(l, stamp))) {
+				v.setStamp(stamp + 2);
+				return false;
+			}
+			else {
+				//v0.setStamp(stamp + 1);
+				//return true;
+			}
+		}
+
+		//v0.setStamp(stamp + 1);
+		//return true;
+	}
+
+	v0.setStamp(stamp + 1);
+	return true;
+}
+
+
+int Solver::getLevelStamp(int index) { return LS.at(index); }
+
+void Solver::setLevelStamp(int index, int value) { LS.at(index) = value; }
+
+void Solver::pushLevelStamp(int value) { LS.push_back(value); }
+
+void Solver::popLevelStamp() { LS.pop_back(); }
 
 // Remove literals from the trail until the specified level is reached.
 void Solver::backjump(int dprime) {
@@ -641,8 +728,15 @@ void Solver::printVector(std::vector<int>& v) {
 
 /* 
 
-	I am learning a clause while on depth d where l0 is defined at level d-1. l0 is supposed to be defined on level d and all other literals in the learned
-	clause are on lower levels. I have confirmed that all the other literals are indeed on lower levels. The only problem is l0. 
+	TODO: 
 
-	l0 is 119 on both the contradicted clause AND the learned clause. Seems suspicious that l0 would match on both.
+	1.) Is ACT corrupted during blit? Do we need to reheapify afterward?
+	2.) Need periodic random selection from heap.
+	3.) Levels 
+	4.) Restarts
+	5.) Rescaling happening correctly?
+	6.) ACT accumulation being handled correctly?
+	7.) What if the CNF is missing variable numbers? I.e variables 1,2, and 4. Does missing 3 affect us?
+		- If so, must we remap the inputs to a sequential series?
+	8.) Profile performance when switching to branchless operations when possible.
 */

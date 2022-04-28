@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <chrono>
 
 std::vector<std::vector<int>> readDimacs(std::string filepath) {
 
@@ -28,24 +29,43 @@ int main() {
 	//std::vector<std::vector<int>> CNF{ {1,2}, {-1, 3}, {2, -3}, {-2, -4}, {-3, 4} }; // 1 -> false, 2 -> true, 3 -> false, 4 -> false
 	//std::vector<std::vector<int>> CNF{ {1,2,-3} , {2,3,-4} , {3,4,1} , {4,-1,2} , {-1,-2,3} , {-2,-3,4} , {-3,-4,-1} }; // Solution 1 -> false, 2 -> true, 4 -> true
 	//std::vector<std::vector<int>> CNF{ {1,2,-3} , {2,3,-4} , {3,4,1} , {4,-1,2} , {-1,-2,3} , {-2,-3,4} , {-3,-4,-1} , {-4,1,-2} }; // Unsat
-	auto CNF = readDimacs("C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf");
-	for (int i = 0; i < 10000; ++i) {
+	//auto CNF = readDimacs("C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf");
+	//auto CNF = readDimacs("C:/Users/aaron/Desktop/dimacs/jnh1_sat.cnf");
 
-		std::cout << "\nRun " << i << "\n";
-		Solver S(CNF);
-		auto solution = S.Solve();
-		if (solution.front()) {
-			std::cout << "SATISFIABLE\n";
-			/*for (auto it = solution.begin() + 1; it != solution.end(); ++it) {
-				std::cout << it - solution.begin() << ((*it) ? " true" : " false");
-				std::cout << "\n";
-			}*/
-		}
-		else {
-			std::cout << "UNSATISFIABLE\n";
+	std::vector<std::string> testFiles = { "C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/jnh1_sat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/jnh3_unsat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/jnh7_sat.cnf"
+	};
+
+	auto start = std::chrono::high_resolution_clock::now();
+
+
+	// Perform unit tests on each file.
+	for (auto file : testFiles) {
+
+		std::cout << "Processing unit test " << file << "\n";
+		auto CNF = readDimacs(file);
+
+		// target is "true" if "unsat" not in the filename. 
+		bool target = file.find("unsat") == std::string::npos;
+
+		for (int i = 0; i < 10000; ++i) {
+
+			//std::cout << "\nRun " << i << "\n";
+			Solver S(CNF);
+			auto solution = S.Solve();
+			if (solution.front() != target) {
+				std::cout << "Unit test failed on file " << file << "\n";
+				std::cin.get();
+			}
 		}
 	}
-	std::cout << "\n\nComplete" << "\n";
+
+	std::cout << "\n\nAll unit tests successfully completed" << "\n";
+	auto finish = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::seconds>(finish - start);
+	std::cout << "Elapsed time: " << duration.count() << "\n";
 	std::cin.get();
 	return 0;
 }
