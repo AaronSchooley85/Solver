@@ -35,7 +35,9 @@ int main() {
 	std::vector<std::string> testFiles = { "C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh1_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh3_unsat.cnf",
-										   "C:/Users/aaron/Desktop/dimacs/jnh7_sat.cnf"
+										   "C:/Users/aaron/Desktop/dimacs/jnh7_sat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/jnh218_sat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/jnh309_unsat.cnf"
 	};
 
 	auto start = std::chrono::high_resolution_clock::now();
