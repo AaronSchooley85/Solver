@@ -37,7 +37,8 @@ int main() {
 										   "C:/Users/aaron/Desktop/dimacs/jnh3_unsat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh7_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh218_sat.cnf",
-										   "C:/Users/aaron/Desktop/dimacs/jnh309_unsat.cnf"
+										   "C:/Users/aaron/Desktop/dimacs/jnh309_unsat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf"
 	};
 
 	auto start = std::chrono::high_resolution_clock::now();
@@ -46,13 +47,17 @@ int main() {
 	// Perform unit tests on each file.
 	for (auto file : testFiles) {
 
-		std::cout << "Processing unit test " << file << "\n";
+		std::cout << "Processing unit test " << file << " |";
 		auto CNF = readDimacs(file);
 
 		// target is "true" if "unsat" not in the filename. 
 		bool target = file.find("unsat") == std::string::npos;
 
+		int numRuns = 10000;
+		int tenth = numRuns / 10;
 		for (int i = 0; i < 10000; ++i) {
+
+			if ( i && i % tenth == 0) std::cout << "X";
 
 			//std::cout << "\nRun " << i << "\n";
 			Solver S(CNF);
@@ -62,6 +67,8 @@ int main() {
 				std::cin.get();
 			}
 		}
+
+		std::cout << "\n";
 	}
 
 	std::cout << "\n\nAll unit tests successfully completed" << "\n";
