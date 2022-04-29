@@ -119,8 +119,13 @@ std::vector<bool> Solver::Solve() {
 			// is equal to the number of variables in the problem.
 			if (trail.size() == n) {
 				
+				// If we're doing a full run, check if we actually encountered any conflicts.
+				int max = 0;
+				if (fullRun) max = static_cast<int>(*std::max_element(conflicts.begin(), conflicts.end()));
+
 				// If not a full run we genuinely solved the problem.
-				if (!fullRun) {
+				// Or if it's a full run but we did not encounter any conflicts.
+				if (!fullRun || ( fullRun && (max == 0))) {
 
 					// Construct and return boolean vector.
 					std::vector<bool> solution(n + 1);
@@ -290,7 +295,7 @@ bool Solver::checkForcing(int literal) {
 						// Record first conflict for this level.
 						int d = depth();
 						if (conflicts.at(d) == 0) conflicts.at(d) = contradictedClauseNumber;
-						return false; // !!!!!!! SHOULD THIS BE HERE?
+						//return false; // !!!!!!! SHOULD THIS BE HERE?
 					}
 
 				}

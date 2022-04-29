@@ -37,8 +37,9 @@ int main() {
 										   "C:/Users/aaron/Desktop/dimacs/jnh3_unsat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh7_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh218_sat.cnf",
-										   "C:/Users/aaron/Desktop/dimacs/jnh309_unsat.cnf",*/ 
-										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf"
+										   "C:/Users/aaron/Desktop/dimacs/jnh309_unsat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf", */
+										   "C:/Users/aaron/Desktop/dimacs/hole9_unsat.cnf"
 	};
 
 	auto start = std::chrono::high_resolution_clock::now();
@@ -53,13 +54,13 @@ int main() {
 		// target is "true" if "unsat" not in the filename. 
 		bool target = file.find("unsat") == std::string::npos;
 
-		int numRuns = 10000;
+		int numRuns = 100;
 		int tenth = numRuns / 10;
 		for (int i = 0; i < numRuns; ++i) {
 
 			if ( i && i % tenth == 0) std::cout << "X";
 
-			//std::cout << "\nRun " << i << "\n";
+			std::cout << "\nRun " << i << "\n";
 			Solver S(CNF);
 			auto solution = S.Solve();
 			if (solution.front() != target) {
