@@ -132,13 +132,16 @@ std::vector<bool> Solver::Solve() {
 				// Beging resolving conflicts and purging useless clauses.
 				else {
 					fullRun = false;
+					purgeThreshold += 1000;
+					//std::cout << "Full run finished\n";
 					purgeProcessing();
 					continue;
 				}
 			}
 			// Check if it's time to get rid of useless learned clauses.
-			else if ( !fullRun && numberLearnedClauses > purgeThreshold) {
+			else if (!fullRun && numberLearnedClauses > purgeThreshold) {
 				fullRun = true;
+				//std::cout << "Learned " << numberLearnedClauses << ". Full run starting\n";
 				for (auto& c : conflicts) c = 0;
 			}
 
@@ -287,7 +290,7 @@ bool Solver::checkForcing(int literal) {
 						// Record first conflict for this level.
 						int d = depth();
 						if (conflicts.at(d) == 0) conflicts.at(d) = contradictedClauseNumber;
-						return false;
+						return false; // !!!!!!! SHOULD THIS BE HERE?
 					}
 
 				}
@@ -357,7 +360,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	int count = 0;
 	b.clear();
 	b.push_back(-1);
-	nextStamp();
+	incrementStamp();
 	int dprime = 0;
 
 	// Process the first literal in the clause.
@@ -444,7 +447,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	}
 #endif
 
-	// Find the last stamped literal.
+	// Find the final stamped literal.
 	int lprime = -1;
 	do {
 		lprime = trail.at(t--);
@@ -468,6 +471,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	std::cout << "\n";
 #endif
 
+	// Return the level we must return to for learned clause installation.
 	return dprime;
 }
 
@@ -733,7 +737,7 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 Variable& Solver::vfl(int literal) { return variables.at(literal >> 1); }
 Variable& Solver::vfv(int variableNumber) { return variables.at(variableNumber); }
 
-void Solver::nextStamp() {
+void Solver::incrementStamp() {
 	stamp += 3;
 }
 
@@ -748,43 +752,49 @@ void Solver::purgeProcessing() {
 	// Initialize minimum to largest possible value.
 	int minDprime = INT32_MAX;
 
-	std::vector<int> clauseIndicesToInstall;
+	std::vector<std::vector<int>> clausesToInstall;
 
 	// Visit conflicts in reverse order.
 	for (auto i = conflicts.rbegin(); i != conflicts.rend(); i++){
 		
 		// Get the depth which is the index of the vector.
-		int d = i - conflicts.rend() + 1;
-		d = -1 * d;
+		auto d = std::distance(i, conflicts.rend()) -1;
 
+		// Obtain the value pointed to by the iterator.
 		int conflictClauseIndex = *i;
 
 		// If a conflict clause was recorded at depth 'd'.  
 		if (conflictClauseIndex > 0) {
 
 			auto& conflictClause = clauses.at(conflictClauseIndex);
+			auto& conflictClauseLiterals = conflictClause.getLiterals();
 
 			// Resolved conflict is stored in 'b' vector.
-			int dprime = resolveConflict(conflictClause.getLiterals(), d);
+			int dprime = resolveConflict(conflictClauseLiterals, d);
 			removeRedundantLiterals();
 
 			// If new minimum, record it and restart install vector.
 			if (dprime < minDprime) {
-				clauseIndicesToInstall.clear();
-				clauseIndicesToInstall.push_back(conflictClauseIndex);
+				clausesToInstall.clear();
 				minDprime = dprime;
 			}
-			// All vectors of minimum dprime are installed at the end.
-			else if (dprime == minDprime) {
-				clauseIndicesToInstall.push_back(conflictClauseIndex);
-			}
+
+			// Save the 'b' vector for installation later.
+			if (dprime == minDprime) clausesToInstall.push_back(b);
 		}
 	}
 
 	// Install all literals defined at minimum dprime.
 	backjump(minDprime);
 
-	learn(minDprime);
+	// Loop through each clause which must be installed.
+	for (auto clauseToInstall : clausesToInstall) {
+
+		// Function 'learn' depends on this class' 'b vector' 
+		// containing the clause. Load it first.
+		b = clauseToInstall;
+		learn(minDprime);
+	}
 
 }
 

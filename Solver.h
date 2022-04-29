@@ -115,7 +115,7 @@ class Solver {
 		// Convenience functions
 		Variable& vfl(int literal); // Variable object from literal.
 		Variable& vfv(int variable);// Variable object from variable number.
-		void nextStamp();
+		void incrementStamp();
 		int depth();
 };
 
