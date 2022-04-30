@@ -44,27 +44,29 @@ int main() {
 
 	auto start = std::chrono::high_resolution_clock::now();
 
+	std::cout << "Performing unit tests...\n\n";
 
 	// Perform unit tests on each file.
 	for (auto file : testFiles) {
 
-		std::cout << "Processing unit test " << file << " |";
 		auto CNF = readDimacs(file);
 
 		// target is "true" if "unsat" not in the filename. 
+		std::cout << "\r" << file << ": 0%";
 		bool target = file.find("unsat") == std::string::npos;
 
-		int numRuns = 100;
-		int tenth = numRuns / 10;
-		for (int i = 0; i < numRuns; ++i) {
+		int numRuns = 10000;
+		int hundredth = numRuns / 100;
+		for (int i = 1; i <= numRuns; ++i) {
 
-			if ( i && i % tenth == 0) std::cout << "X";
+			if (i % hundredth == 0) std::cout << "\r" << file << ": " << (100.0 * i) / numRuns << "%";
 
 			//std::cout << "\nRun " << i << "\n";
 			Solver S(CNF, i);
 			auto solution = S.Solve();
 			if (solution.front() != target) {
 				std::cout << "Unit test failed on file " << file << "\n";
+				std::wcout << "Seed was: " << i << "\n";
 				std::cin.get();
 			}
 		}
