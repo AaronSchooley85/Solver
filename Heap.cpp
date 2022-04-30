@@ -16,9 +16,19 @@ void Heap::push(Variable* v) {
 }
 
 // Return the largest element.
-Variable* Heap::pop() {
+Variable* Heap::pop(bool random) {
 
-	std::pop_heap(heap.begin(), heap.end(), comparison());
+	// Occasionally place a random item on the back.
+	if (random && (rand() % 1000) < 20) {
+
+		int randomIndex = rand() % heap.size();
+		std::iter_swap(heap.begin() + randomIndex, heap.end() - 1);
+	}
+	// Usually put the highest activity variable on the back.
+	else {
+		std::pop_heap(heap.begin(), heap.end(), comparison());
+	}
+
 	Variable* max = heap.back();
 	heap.pop_back();
 	max->setHloc(false);
@@ -30,5 +40,10 @@ Variable* Heap::pop() {
 void Heap::reheapify() {
 
 	std::make_heap(heap.begin(), heap.end(), comparison());
+}
+
+void Heap::setSeed(int s) { 
+	seed = s;
+	srand(seed);
 }
 

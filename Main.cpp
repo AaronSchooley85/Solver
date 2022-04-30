@@ -55,7 +55,7 @@ int main() {
 		std::cout << "\r" << file << ": 0%";
 		bool target = file.find("unsat") == std::string::npos;
 
-		int numRuns = 10000;
+		int numRuns = 1000;
 		int hundredth = numRuns / 100;
 		for (int i = 1; i <= numRuns; ++i) {
 
@@ -77,7 +77,7 @@ int main() {
 	std::cout << "\n\nAll unit tests successfully completed" << "\n";
 	auto finish = std::chrono::high_resolution_clock::now();
 	auto duration = std::chrono::duration_cast<std::chrono::seconds>(finish - start);
-	std::cout << "Elapsed time: " << duration.count() << "\n";
+	std::cout << "Elapsed time: " << duration.count() << " seconds\n";
 	std::cin.get();
 	return 0;
 }

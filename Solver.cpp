@@ -97,6 +97,9 @@ Solver::Solver(cnf CNF, int seedArgument) {
 	if (seedArgument < 0) seed = std::chrono::system_clock::now().time_since_epoch().count();
 	else seed = seedArgument;
 
+	// Give seed to heap as well.
+	heap.setSeed(seed);
+
 	// Shuffle the variables to add to the heap. This prevents getting stuck in "ruts" if invoked multiple times.
 	std::shuffle(shuffledVariablePointers.begin(), shuffledVariablePointers.end(), std::default_random_engine(seed));
 	for (auto &v : shuffledVariablePointers) {
@@ -339,7 +342,7 @@ void Solver::makeADecision() {
 	// that is free.
 	Variable* nextFree = nullptr;
 	do {
-		nextFree = heap.pop();
+		nextFree = heap.pop(true); // Get max element but allow for occassional random elements. 
 	} while (!(nextFree->isFree()));
 	
 	// Add the new decision variable to the trail.
