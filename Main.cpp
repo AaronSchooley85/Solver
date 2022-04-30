@@ -32,13 +32,13 @@ int main() {
 	//auto CNF = readDimacs("C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf");
 	//auto CNF = readDimacs("C:/Users/aaron/Desktop/dimacs/jnh1_sat.cnf");
 
-	std::vector<std::string> testFiles = { /*"C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf",
+	std::vector<std::string> testFiles = { "C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh1_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh3_unsat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh7_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh218_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh309_unsat.cnf",
-										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf", */
+										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/hole9_unsat.cnf"
 	};
 
@@ -60,8 +60,8 @@ int main() {
 
 			if ( i && i % tenth == 0) std::cout << "X";
 
-			std::cout << "\nRun " << i << "\n";
-			Solver S(CNF);
+			//std::cout << "\nRun " << i << "\n";
+			Solver S(CNF, i);
 			auto solution = S.Solve();
 			if (solution.front() != target) {
 				std::cout << "Unit test failed on file " << file << "\n";

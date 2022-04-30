@@ -137,14 +137,13 @@ std::vector<bool> Solver::Solve() {
 				// Beging resolving conflicts and purging useless clauses.
 				else {
 					fullRun = false;
-					purgeThreshold += 1000;
 					//std::cout << "Full run finished\n";
 					purgeProcessing();
 					continue;
 				}
 			}
 			// Check if it's time to get rid of useless learned clauses.
-			else if (!fullRun && numberLearnedClauses > purgeThreshold) {
+			else if (!fullRun && (clauses.size() - minl) > purgeThreshold) {
 				fullRun = true;
 				//std::cout << "Learned " << numberLearnedClauses << ". Full run starting\n";
 				for (auto& c : conflicts) c = 0;
@@ -577,6 +576,7 @@ void Solver::backjump(int dprime) {
 		v.setOval(v.getValue());	// Set old value to current.
 		v.setValue(-1);				// Reset value.
 		v.setTloc(-1);				// Reset trail location !!! Did not see in step C8!
+		if (v.getReason() != -1) clauses.at(v.getReason()).setReasonFor(-1);
 		v.setReason(-1);			// Reset reason clause.
 		if (!v.getHloc()) heap.push(&v); // Place on heap if not already there.
 	}
@@ -607,9 +607,6 @@ void Solver::learn(int dprime) {
 
 	// Access learned clause from member variable 'b'.
 	auto& clause = b;
-
-	// We have learned another clause. Record this fact.
-	incrementLearnedClauses();
 
 	// Not unit clause - Install the clause.
 	if (dprime) {
@@ -801,10 +798,117 @@ void Solver::purgeProcessing() {
 		learn(minDprime);
 	}
 
-}
+	// Calculate range scores for all learned clauses.
+	for (auto& x : LS) x = 0;
+	std::vector<int> m(256, 0);
+	for (int c = minl; c < clauses.size(); ++c) {
+		auto& clause = clauses.at(c);
 
-int Solver::getNumberOfLearnedClauses() { return numberLearnedClauses; }
-void Solver::incrementLearnedClauses() { ++numberLearnedClauses; }
+		// If this clause is a reason for a literal it gets a score of zero.
+		if (clause.getReasonFor() != -1) clause.setRange(0);
+		else {
+
+			int p = 0, r = 0;
+			for (auto lit : clause.getLiterals()) {
+
+				auto& v = vfl(lit);
+				auto val = v.getValue();
+				auto level = val >> 1;
+
+				// If it was set on level 0. 
+				if (level == 0 && v.isTrue(lit)) {
+					clause.setRange(256);
+					break;
+				}
+				else if (level >= 1 && LS[level] < c) {
+					LS[level] = c;
+					++r;
+				}
+				else if (level >= 1 && LS[level] == c && v.isTrue(lit)) {
+					LS[level] = c + 1;
+					++p;
+				}
+			}
+			int a = (int) std::floor(16.0 * (p + clauseAlpha * (r - p)));
+			r = (int) std::min(a, 255);
+			m.at(r)++;
+			clause.setRange(r);
+		}
+	}
+	
+	// Remove some learned clauses.
+	int T = (clauses.size() - minl) / 2; // Number of learned clauses to retain.
+
+	// Find the number of elements of vector 'm' needed such that
+	// their sum.
+	int sum = 0;
+	int j = 0;
+	while (sum <= T) sum += m.at(j++);
+	sum -= m.at(j - 1);
+	int tieBreakers = T - sum;
+
+	// Purge clauses whose range is greater than or equal to j.
+	// Book says do in order. Am I allowed to swap and pop?
+	for (int i = minl; i < clauses.size();) {
+		
+		// Get the clause at this index.
+		auto& proposedClause = clauses.at(i);
+
+		// Purge if range score too large.
+		if (proposedClause.getRange() >= j) {
+
+			// Swap clause to delete with last clause.
+			std::iter_swap(clauses.begin() + i, clauses.end() - 1);
+
+			// Update moved clause so that it has the new clause number and
+			// inform the watched variables that the number is changed.
+			auto& newClause = clauses.at(i);
+			int originalClauseNumber = newClause.getClauseNumber();
+
+			auto& literals = newClause.getLiterals();
+			auto wl0 = literals.at(0);
+			auto wl1 = literals.at(1);
+			auto& wv0 = vfl(wl0);
+			auto& wv1 = vfl(wl1);
+
+			// Inform the watched variables that the clause number has changed.
+			wv0.removeFromWatch(originalClauseNumber, !(wl0 & 1));
+			wv1.removeFromWatch(originalClauseNumber, !(wl1 & 1));
+			wv0.addToWatch(i, !(wl0 & 1));
+			wv1.addToWatch(i, !(wl1 & 1));
+
+			newClause.setClauseNumber(i); // Inform clause of its new clause number.
+
+			// If the moved clause is a reason for a literal, update the reason property.
+			auto reasonFor = newClause.getReasonFor();
+			if (reasonFor != -1) variables.at(reasonFor).setReason(i);
+			
+			auto& removedClause = clauses.back();
+			auto& removedClauseLiterals = removedClause.getLiterals();
+			int rl0 = removedClauseLiterals.at(0);
+			int rl1 = removedClauseLiterals.at(1);
+			auto& rv0 = vfl(rl0);
+			auto& rv1 = vfl(rl1);
+			rv0.removeFromWatch(i, !(rl0 & 1));
+			rv1.removeFromWatch(i, !(rl1 & 1));
+
+			if (removedClause.getReasonFor() != -1) {
+				std::cout << "Fatal error! Removed clause should not be a reason for any literal!\n";
+				std::cin.get();
+			}
+			// Processing complete. Remove clause.
+			clauses.pop_back();
+
+			// Don't increment i. Swap has placed next value at current index.
+		}
+		else {
+			i++;
+		}
+	}
+
+	capDelta += lowerDelta;
+	purgeThreshold += capDelta;
+}
 
 bool Solver::checkVectorForDuplicates(std::vector<int>& v) {
 

@@ -24,7 +24,6 @@ class Solver {
 		// Indices of min and max learned clauses.
 		int minl = 0;
 		int maxl = 0;
-		int numberLearnedClauses = 0;
 
 		// Number of variables in problem instance.
 		int n = -1;
@@ -52,7 +51,9 @@ class Solver {
 		std::vector<int> LS;
 
 		// Threshold at which we purge useless learned clauses.
-		int purgeThreshold = 1000;
+		int capDelta = 10000;
+		int lowerDelta = 100;
+		int purgeThreshold = capDelta;
 
 		// Flag indicating "full runs" being performed.
 		bool fullRun = false;
@@ -66,6 +67,9 @@ class Solver {
 		// DEL is the amount to increase the variable activity by.
 		double DEL = 1.0;
 
+		// Used for clause range calculation.
+		double clauseAlpha = 0.999;
+
 
 		// Flag to indicate that we have failed to find a solution.
 		bool solutionFailed = false;
@@ -75,9 +79,6 @@ class Solver {
 		// Add elements to trail.
 		void addDecisionVariableToTrail(int variableNumber);
 		void addForcedLiteralToTrail(int literal, int reason);
-
-		void incrementLearnedClauses();
-		int  getNumberOfLearnedClauses();
 
 		// Modify LS vector.
 		void pushLevelStamp(int value);

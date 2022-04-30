@@ -19,6 +19,13 @@ class Clause {
 		void setReasonFor(int v);
 		int getReasonFor();
 
+		int getRange();
+		void setRange(int);
+
+		double getActivity();
+		void setActivity(double);
+
+
 	private:
 
 		// The literals which compose this clause.
@@ -29,6 +36,10 @@ class Clause {
 
 		// Variable which cites this clause as a reason.
 		int reasonFor = -1;
+
+		// properties for purging.
+		int range = 0;
+		double activity = 0.0;
 
 };
 
