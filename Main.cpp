@@ -38,8 +38,8 @@ int main() {
 										   "C:/Users/aaron/Desktop/dimacs/jnh7_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh218_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh309_unsat.cnf",
-										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf",
-										   "C:/Users/aaron/Desktop/dimacs/hole9_unsat.cnf"
+										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf"
+										   //"C:/Users/aaron/Desktop/dimacs/hole9_unsat.cnf"
 	};
 
 	auto start = std::chrono::high_resolution_clock::now();

@@ -329,6 +329,12 @@ void Solver::makeADecision() {
 	std::cout << "########## " << "LEVEL " << depth() << " ###########\n";
 #endif
 
+	// Repair heap if necessary.
+	if (heapCorrupted) {
+		heap.reheapify();
+		heapCorrupted = false;
+	}
+
 	// Repeatedly pop a variable from the heap until we find one
 	// that is free.
 	Variable* nextFree = nullptr;
@@ -373,6 +379,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	v0.setStamp(stamp); // Stamped here, not in 'blit' so count is not affected. 
 	bool rescale = false;
 	rescale |= v0.bumpActivity(DEL);
+	heapCorrupted = true; // !! This makes a huge improvement. Heap corruption is a serious issue. 
 
 	// If depth was specified use that depth, otherwise get it from level vector size.
 	int currentDepth = d < 0 ? depth() : d;

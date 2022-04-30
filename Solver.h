@@ -74,6 +74,9 @@ class Solver {
 		// Flag to indicate that we have failed to find a solution.
 		bool solutionFailed = false;
 
+		// Set when the 'blit' algorithm bumps activity scores.
+		bool heapCorrupted = false;
+
 		/* Private methods */
 
 		// Add elements to trail.

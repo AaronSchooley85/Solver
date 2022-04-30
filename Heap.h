@@ -14,6 +14,7 @@ public:
 	// Remove from, and add to heap, respectively.
 	Variable* pop();
 	void push(Variable*);
+	void reheapify();
 
 private:
 	std::vector<Variable*> heap;

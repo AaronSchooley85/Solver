@@ -25,3 +25,10 @@ Variable* Heap::pop() {
 	return max;
 }
 
+// Intended use is to restore heap property when activity scores have
+// been externally modified by solver. 
+void Heap::reheapify() {
+
+	std::make_heap(heap.begin(), heap.end(), comparison());
+}
+
