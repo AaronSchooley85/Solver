@@ -51,8 +51,8 @@ class Solver {
 		std::vector<int> LS;
 
 		// Threshold at which we purge useless learned clauses.
-		int capDelta = 10000;
-		int lowerDelta = 100;
+		int capDelta = 20000;
+		int lowerDelta = 500;
 		int purgeThreshold = capDelta;
 
 		// Flag indicating "full runs" being performed.
@@ -62,14 +62,14 @@ class Solver {
 		std::vector<int> conflicts;
 
 		// rho is the damping factor used to adjust variable activities.
-		double rho = 0.95;
+		double rho = 0.995; // For some reason much higher values than the book work well for my test cases. 
 
 		// DEL is the amount to increase the variable activity by.
 		double DEL = 1.0;
 
 		// Used for clause range calculation.
-		double clauseAlpha = 0.999;
-
+		double clauseAlpha = 0.4;
+		double clauseRho = 0.9995;
 
 		// Flag to indicate that we have failed to find a solution.
 		bool solutionFailed = false;
