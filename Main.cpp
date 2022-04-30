@@ -55,7 +55,7 @@ int main() {
 		std::cout << "\r" << file << ": 0%";
 		bool target = file.find("unsat") == std::string::npos;
 
-		int numRuns = 10000;
+		int numRuns = 1000;
 		int hundredth = numRuns / 100;
 		for (int i = 1; i <= numRuns; ++i) {
 

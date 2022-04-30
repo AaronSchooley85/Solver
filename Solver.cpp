@@ -413,18 +413,6 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	// Apply blit algorithm to all literals at index GREATER THAN 0 in clause.
 	for (size_t i = 1, len = clause.size(); i < len; ++i) blit(clause.at(i));
 
-	// If any variable had its activity score exceed our given threshold, rescale
-	// all variables by that threshold. 
-	if (rescale) {
-		for (size_t i = 1, len = variables.size(); i < len; ++i) {
-			auto &variable = variables.at(i);
-			auto currentActivity = variable.getActivity();
-			variable.setActivity(currentActivity / variable.threshold);
-		}
-
-		// Rescale DEL too.
-		DEL /= variables.front().threshold;
-	}
 
 	// Get the highest trail index of ALL literals in the clause.
 	int t = 0;
@@ -451,6 +439,19 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 				for (size_t i = 1, len = reasonClause.size(); i < len; ++i) blit(reasonClause.at(i));
 			}
 		}
+	}
+
+	// If any variable had its activity score exceed our given threshold, rescale
+	// all variables by that threshold. 
+	if (rescale) {
+		for (size_t i = 1, len = variables.size(); i < len; ++i) {
+			auto &variable = variables.at(i);
+			auto currentActivity = variable.getActivity();
+			variable.setActivity(currentActivity / variable.threshold);
+		}
+
+		// Rescale DEL too.
+		DEL /= variables.front().threshold;
 	}
 
 #ifdef DEBUG
