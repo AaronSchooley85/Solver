@@ -35,6 +35,19 @@ Variable* Heap::pop(bool random) {
 	return max;
 }
 
+// Return the variable with the highest activity score which is
+// free. Nothing is removed from the heap. Heap is not modified.
+Variable* Heap::queryMaxFreeVariable() {
+	
+	Variable* v;
+	int i = 0;
+	do {
+		v = heap.at(i++);
+	} while (!v->isFree());
+
+	return v;
+}
+
 // Intended use is to restore heap property when activity scores have
 // been externally modified by solver. 
 void Heap::reheapify() {

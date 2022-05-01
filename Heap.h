@@ -17,6 +17,7 @@ public:
 	void push(Variable*);
 	void reheapify();
 	void setSeed(int s);
+	Variable* queryMaxFreeVariable();
 
 private:
 	int seed = 0;

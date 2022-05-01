@@ -55,6 +55,16 @@ class Solver {
 		int lowerDelta = 500;
 		int purgeThreshold = capDelta;
 
+		// Flushing parameters.
+		double theta = 17.0 / 16;
+		double psi = 1.0 / 6;
+		int flushThreshold = 1;
+		int uf = 1;
+		int vf = 1;
+		uint64_t thetaF = 1;
+
+		int32_t agility = 0;
+
 		// Flag indicating "full runs" being performed.
 		bool fullRun = false;
 
@@ -76,6 +86,7 @@ class Solver {
 
 		// Set when the 'blit' algorithm bumps activity scores.
 		bool heapCorrupted = false;
+
 
 		/* Private methods */
 
@@ -110,6 +121,9 @@ class Solver {
 		
 		// Resolve backlogged conflicts and calculate range scores.
 		void purgeProcessing();
+
+		// If agility scores dictate it, flush some literals from the trail.
+		void flushProcessing();
 
 		// Diagnostic method for checking for duplicates in vector.
 		bool checkVectorForDuplicates(std::vector<int>&);

@@ -82,7 +82,6 @@ private:
 	int val = -1;
 	int oval = 0;
 	double act = 0;
-
 };
 
 #endif

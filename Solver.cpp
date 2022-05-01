@@ -151,6 +151,10 @@ std::vector<bool> Solver::Solve() {
 				//std::cout << "Learned " << numberLearnedClauses << ". Full run starting\n";
 				for (auto& c : conflicts) c = 0;
 			}
+			// Is it time to flush literals?
+			else if ((clauses.size() - minl) >= flushThreshold) {
+				flushProcessing();
+			}
 
 			// Not finished. We need to make a decision.
 			// Select a free variable from the heap and place on trail.
@@ -375,6 +379,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	b.push_back(-1);
 	incrementStamp();
 	int dprime = 0;
+	int learnCount = clauses.size() - minl;
 
 	// Process the first literal in the clause.
 	auto l0 = clause.front();
@@ -435,6 +440,12 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 
 			// Process a reason if it exists. 
 			if (reasonIndex != -1) {
+
+				// This clause is participating in a resolution. Increase its activity. !!!!! NOT ENTIRELY SURE WHERE TO PUT THIS.
+				auto clauseActivity = clauses.at(reasonIndex).getActivity();
+				clauses.at(reasonIndex).setActivity(clauseActivity + std::pow(clauseRho, -learnCount));
+
+				// Blit literals at index greater than 0.
 				auto& reasonClause = clauses.at(reasonIndex).getLiterals();
 				for (size_t i = 1, len = reasonClause.size(); i < len; ++i) blit(reasonClause.at(i));
 			}
@@ -689,6 +700,7 @@ void Solver::addDecisionVariableToTrail(int variableNumber) {
 	auto& variable = vfv(variableNumber);
 	if (variable.isFree()) {
 		variable.setValue(static_cast<int>(depth()));
+		agility = agility - (agility >> 13) + (((variable.getOval() - variable.getValue()) & 1) << 19);
 		variable.setTloc(static_cast<int>(trail.size()));
 		variable.setReason(-1);
 		trail.push_back(variable.getCurrentLiteralValue());
@@ -709,6 +721,7 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 	auto& variable = vfl(literal);
 	if (variable.isFree()) {
 		variable.setValue(static_cast<int>(depth()), literal);
+		agility = agility - (agility >> 13) + (((variable.getOval() - variable.getValue()) & 1) << 19);
 		variable.setTloc(static_cast<int>(trail.size()));
 		variable.setReason(reason);
 		trail.push_back(variable.getCurrentLiteralValue());
@@ -919,6 +932,70 @@ void Solver::purgeProcessing() {
 
 	capDelta += lowerDelta;
 	purgeThreshold += capDelta;
+}
+
+// Flush literals from the trail if heuristics determine it is advised. 
+// Otherwise return immediately. 
+void Solver::flushProcessing() {
+
+
+	flushThreshold += vf;
+	if ((uf & -uf) == vf) {
+		uf++;
+		vf = 1;
+		thetaF = std::pow(2, 32) * psi;
+	}
+	else {
+		vf *= 2;
+		thetaF += (thetaF >> 4);
+	}
+
+	/*auto a = agility / std::pow(2, 32);
+
+	// Below we return if it's not time to flush. 
+	switch (flushCapDelta) {
+	case 1:
+		if (a > std::pow(theta, 0) * psi) return;
+	case 2:
+		if (a > std::pow(theta, 1) * psi) return;
+	case 3:
+		if (a > std::pow(theta, 2) * psi) return;
+	case 4:
+		if (a > std::pow(theta, 3) * psi) return;
+	case 5:
+		if (a > std::pow(theta, 4) * psi) return;
+	case 6:
+		if (a > std::pow(theta, 5) * psi) return;
+	case 7:
+		if (a > std::pow(theta, 6) * psi) return;
+	case 8:
+		if (a > std::pow(theta, 7) * psi) return;
+	case 9:
+		if (a > std::pow(theta, 8) * psi) return;
+	case 10:
+		if (a > std::pow(theta, 9) * psi) return;
+	case 11:
+		if (a > std::pow(theta, 10) * psi) return;
+	case 12:
+		if (a > std::pow(theta, 11) * psi) return;
+	case 13:
+		if (a > std::pow(theta, 12) * psi) return;
+	case 14:
+		if (a > std::pow(theta, 13) * psi) return;
+	case 15:
+		if (a > std::pow(theta, 14) * psi) return;
+	} */
+
+	if (agility <= thetaF) {
+		auto maxActivity = heap.queryMaxFreeVariable()->getActivity();
+
+		// !!!!!!!!!!!! Knuth's book does not mention any check for dprime not exceeding levels. Why does my code need it?
+		int dprime = 0;
+		while (dprime < (levels.size() -1) && vfl(trail.at(levels.at(dprime + 1))).getActivity() >= maxActivity) dprime++;
+		if (dprime < depth()) {
+			backjump(dprime);
+		}
+	}
 }
 
 bool Solver::checkVectorForDuplicates(std::vector<int>& v) {

@@ -55,14 +55,14 @@ int main() {
 		std::cout << "\r" << file << ": 0%";
 		bool target = file.find("unsat") == std::string::npos;
 
-		int numRuns = 1000;
+		int numRuns = 10000;
 		int hundredth = numRuns / 100;
 		for (int i = 1; i <= numRuns; ++i) {
 
 			if (i % hundredth == 0) std::cout << "\r" << file << ": " << (100.0 * i) / numRuns << "%";
 
-			//std::cout << "\nRun " << i << "\n";
-			Solver S(CNF, i);
+		//	std::cout << "\nRun " << i << "\n";
+			Solver S(CNF,i);
 			auto solution = S.Solve();
 			if (solution.front() != target) {
 				std::cout << "Unit test failed on file " << file << "\n";
