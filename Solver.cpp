@@ -209,9 +209,9 @@ bool Solver::checkForcing(int literal) {
 
 		// Algorithm C requires the literal at index 1 of the clause to be the contradicted literal.
 		// Swap first two literals if the element at index 1 is not the contradicted literal.
-		if (contradictedClauseLiterals.at(1) != contradictedLiteral) {
-			std::iter_swap(contradictedClauseLiterals.begin(), contradictedClauseLiterals.begin() + 1);
-		}
+		// This is a branchless swap which has proven to be a bit faster. 
+		bool swap = contradictedClauseLiterals.at(1) != contradictedLiteral;
+		std::iter_swap(contradictedClauseLiterals.begin(), contradictedClauseLiterals.begin() + swap);
 
 #ifdef DEBUG
 		// Sanity check.
@@ -237,7 +237,7 @@ bool Solver::checkForcing(int literal) {
 			
 			// We will try to swap the literal at index 1 with another which is NOT FALSE.
 			bool swapSuccess = false;
-			for (size_t i = 2 ; i < contradictedClauseLiterals.size(); ++i) {
+			for (size_t i = 2, n = contradictedClauseLiterals.size(); i < n; ++i) {
 
 				// Get the candidate literal and its associated variable object.
 				auto lx = contradictedClauseLiterals.at(i);
@@ -256,17 +256,6 @@ bool Solver::checkForcing(int literal) {
 					variable.removeFromWatch(contradictedClauseNumber, !(contradictedLiteral & 1));
 					swapSuccess = true;
 					break;
-				}
-				// It's false. Let's take this opportunity to remove the literal if it received its value on level 0.
-				else {
-
-					int level = vx.getValue() >> 1;
-					if (level == 0) {
-						std::swap(contradictedClauseLiterals.back(), contradictedClauseLiterals.at(i));
-						contradictedClauseLiterals.pop_back();
-						--i; // adjust i. 
-					}
-
 				}
 			}
 
