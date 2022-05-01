@@ -237,7 +237,7 @@ bool Solver::checkForcing(int literal) {
 			
 			// We will try to swap the literal at index 1 with another which is NOT FALSE.
 			bool swapSuccess = false;
-			for (size_t i = 2, len = contradictedClauseLiterals.size(); i < len; ++i) {
+			for (size_t i = 2 ; i < contradictedClauseLiterals.size(); ++i) {
 
 				// Get the candidate literal and its associated variable object.
 				auto lx = contradictedClauseLiterals.at(i);
@@ -256,6 +256,17 @@ bool Solver::checkForcing(int literal) {
 					variable.removeFromWatch(contradictedClauseNumber, !(contradictedLiteral & 1));
 					swapSuccess = true;
 					break;
+				}
+				// It's false. Let's take this opportunity to remove the literal if it received its value on level 0.
+				else {
+
+					int level = vx.getValue() >> 1;
+					if (level == 0) {
+						std::swap(contradictedClauseLiterals.back(), contradictedClauseLiterals.at(i));
+						contradictedClauseLiterals.pop_back();
+						--i; // adjust i. 
+					}
+
 				}
 			}
 
@@ -1022,9 +1033,6 @@ void Solver::printVector(std::vector<int>& v) {
 	TODO: 
 
 	1.) Is ACT corrupted during blit? Do we need to reheapify afterward?
-	2.) Need periodic random selection from heap.
-	3.) Levels 
-	4.) Restarts
 	5.) Rescaling happening correctly?
 	6.) ACT accumulation being handled correctly?
 	7.) What if the CNF is missing variable numbers? I.e variables 1,2, and 4. Does missing 3 affect us?
