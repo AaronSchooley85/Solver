@@ -7,6 +7,45 @@
 #include <vector>
 #include <chrono>
 
+
+std::vector<std::vector<int>> waerden(int j, int k, int n) {
+
+	std::vector<std::vector<int>> cnf;
+
+
+	int d = 1;
+	bool run = false;
+	do {
+		run = false;
+		for (int i = 1; i <= n - (j - 1) * d; ++i) {
+			run = true;
+			std::vector<int> tmp;
+			for (int jj = 0; jj < j; ++jj) {
+				tmp.push_back(i + (jj * d));
+			}
+			cnf.push_back(tmp);
+		}
+		++d;
+	} while (run);
+
+
+	d = 1;
+	do {
+		run = false;
+		for (int i = 1; i <= n - (k - 1) * d; ++i) {
+			run = true;
+			std::vector<int> tmp;
+			for (int kk = 0; kk < k; ++kk) {
+				tmp.push_back(-(i + (kk * d)));
+			}
+			cnf.push_back(tmp);
+		}
+		++d;
+	} while (run);
+
+	return cnf;
+}
+
 std::vector<std::vector<int>> readDimacs(std::string filepath) {
 
 	std::vector<std::vector<int>> CNF;
@@ -38,8 +77,9 @@ int main() {
 										   "C:/Users/aaron/Desktop/dimacs/jnh7_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh218_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh309_unsat.cnf",
-										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf"
-										   //"C:/Users/aaron/Desktop/dimacs/hole9_unsat.cnf"
+										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/hole6_unsat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/hole9_unsat.cnf"
 	};
 
 	auto start = std::chrono::high_resolution_clock::now();
@@ -55,7 +95,7 @@ int main() {
 		std::cout << "\r" << file << ": 0%";
 		bool target = file.find("unsat") == std::string::npos;
 
-		int numRuns = 10000;
+		int numRuns = 1000;
 		int hundredth = numRuns / 100;
 		for (int i = 1; i <= numRuns; ++i) {
 
