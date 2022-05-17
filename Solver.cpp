@@ -443,7 +443,8 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 
 				// This clause is participating in a resolution. Increase its activity. !!!!! NOT ENTIRELY SURE WHERE TO PUT THIS.
 				auto clauseActivity = clauses.at(reasonIndex).getActivity();
-				clauses.at(reasonIndex).setActivity(clauseActivity + std::pow(clauseRho, -learnCount));
+				//clauses.at(reasonIndex).setActivity(clauseActivity + std::pow(clauseRho, -learnCount));
+				clauses.at(reasonIndex).setActivity(clauseActivity + std::pow(clauseRho, -totalLearnedClauses)); // So far no difference. Check on larger problems?
 
 				// Blit literals at index greater than 0.
 				auto& reasonClause = clauses.at(reasonIndex).getLiterals();
@@ -945,7 +946,7 @@ void Solver::flushProcessing() {
 	if ((uf & -uf) == vf) {
 		uf++;
 		vf = 1;
-		thetaF = std::pow(2, 32) * psi;
+		thetaF = std::pow(2, 32) * psi; // Check this double and int math.
 	}
 	else {
 		vf *= 2;
