@@ -43,7 +43,7 @@ int  Variable::getTloc() { return tloc; }
 bool Variable::getHloc() { return hloc; }
 
 // Get the activity score used for heap location.
-int Variable::getActivity() const { return act; }
+double Variable::getActivity() const { return act; }
 
 // Set the activity to a specific amount. Typically used for rescaling.
 void Variable::setActivity(double amount) { act = amount; }

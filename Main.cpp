@@ -71,14 +71,14 @@ int main() {
 	//auto CNF = readDimacs("C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf");
 	//auto CNF = readDimacs("C:/Users/aaron/Desktop/dimacs/jnh1_sat.cnf");
 
-	std::vector<std::string> testFiles = { "C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf",
+	std::vector<std::string> testFiles = { /*"C:/Users/aaron/Desktop/dimacs/jnh2_unsat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh1_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh3_unsat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh7_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh218_sat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/jnh309_unsat.cnf",
 										   "C:/Users/aaron/Desktop/dimacs/flat200-22_sat.cnf",
-										   "C:/Users/aaron/Desktop/dimacs/hole6_unsat.cnf",
+										   "C:/Users/aaron/Desktop/dimacs/hole6_unsat.cnf",*/
 										   "C:/Users/aaron/Desktop/dimacs/hole9_unsat.cnf"
 	};
 
@@ -89,17 +89,18 @@ int main() {
 	// Perform unit tests on each file.
 	for (auto file : testFiles) {
 
-		auto CNF = readDimacs(file);
+		//auto CNF = readDimacs(file);
+		auto CNF = waerden(5,5,178);
 
 		// target is "true" if "unsat" not in the filename. 
 		std::cout << "\r" << file << ": 0%";
 		bool target = file.find("unsat") == std::string::npos;
 
-		int numRuns = 1000;
+		int numRuns = 1;
 		int hundredth = numRuns / 100;
 		for (int i = 1; i <= numRuns; ++i) {
 
-			if (i % hundredth == 0) std::cout << "\r" << file << ": " << (100.0 * i) / numRuns << "%";
+			//if (i % hundredth == 0) std::cout << "\r" << file << ": " << (100.0 * i) / numRuns << "%";
 
 		//	std::cout << "\nRun " << i << "\n";
 			Solver S(CNF,i);

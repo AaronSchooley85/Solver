@@ -55,7 +55,7 @@ public:
 	void setTloc(int t);
 	int getTloc();
 
-	int getActivity() const;
+	double getActivity() const;
 	void setActivity(double amount);
 	bool bumpActivity(double amount);
 

@@ -24,6 +24,7 @@ class Solver {
 		// Indices of min and max learned clauses.
 		int minl = 0;
 		int maxl = 0;
+		int totalLearnedClauses = 0;
 
 		// Number of variables in problem instance.
 		int n = -1;
@@ -51,13 +52,13 @@ class Solver {
 		std::vector<int> LS;
 
 		// Threshold at which we purge useless learned clauses.
-		int capDelta = 20000;
+		int capDelta = 1000;
 		int lowerDelta = 500;
 		int purgeThreshold = capDelta;
 
 		// Flushing parameters.
 		double theta = 17.0 / 16;
-		double psi = 1.0 / 6;
+		double psi = 0.05;
 		int flushThreshold = 1;
 		int uf = 1;
 		int vf = 1;
@@ -72,7 +73,7 @@ class Solver {
 		std::vector<int> conflicts;
 
 		// rho is the damping factor used to adjust variable activities.
-		double rho = 0.995; // For some reason much higher values than the book work well for my test cases. 
+		double rho = 0.9; // For some reason much higher values than the book work well for my test cases. 
 
 		// DEL is the amount to increase the variable activity by.
 		double DEL = 1.0;

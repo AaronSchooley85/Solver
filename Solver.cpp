@@ -146,13 +146,13 @@ std::vector<bool> Solver::Solve() {
 				}
 			}
 			// Check if it's time to get rid of useless learned clauses.
-			else if (!fullRun && (clauses.size() - minl) > purgeThreshold) {
+			else if (!fullRun && totalLearnedClauses > purgeThreshold) {
 				fullRun = true;
 				//std::cout << "Learned " << numberLearnedClauses << ". Full run starting\n";
 				for (auto& c : conflicts) c = 0;
 			}
 			// Is it time to flush literals?
-			else if ((clauses.size() - minl) >= flushThreshold) {
+			else if (totalLearnedClauses >= flushThreshold) {
 				flushProcessing();
 			}
 
@@ -626,6 +626,8 @@ void Solver::backjump(int dprime) {
 }
 
 void Solver::learn(int dprime) {
+
+	totalLearnedClauses++;
 
 	// Access learned clause from member variable 'b'.
 	auto& clause = b;
