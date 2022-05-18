@@ -61,7 +61,30 @@ Solver::Solver(cnf CNF, int seedArgument) {
 					addForcedLiteralToTrail(literal, -1);
 				}
 				break; }
+				  // Binary clauses go into the bimp table.
+			/*case 2: {
 
+				auto l0 = encoded.at(0);
+				auto notl0 = l0 ^ 1;
+				auto l1 = encoded.at(1);
+				auto notl1 = l1 ^ 1;
+
+				// Ensure entries exist for their complements.
+				if (!bimp.count(notl0)) bimp.emplace(notl0, std::vector<int>());
+				if (!bimp.count(notl1)) bimp.emplace(notl1, std::vector<int>());
+
+				// Add l1 to not v0 vector if not already present.
+				auto& v0 = bimp.at(notl0);
+				auto loc = std::find(v0.begin(), v0.end(), l1);
+				if (loc == v0.end()) v0.push_back(l1);
+
+				// Repeat for v1.
+				auto& v1 = bimp.at(notl1);
+				loc = std::find(v1.begin(), v1.end(), l0);
+				if (loc == v1.end()) v1.push_back(l0);
+				break;
+
+			}*/
 			// Standard clause of length greater than 1. 
 			default:
 				auto clauseNumber = clauses.size();
@@ -282,17 +305,7 @@ bool Solver::checkForcing(int literal) {
 					// We resolve conflicts if we are not at level 0 and not doing a full run.
 					else if (!fullRun) {
 
-						// Learn a new clause and return the depth we must return to for installation.
-						int dprime = resolveConflict(contradictedClauseLiterals);
-
-						// Remove literals from the trail.
-						backjump(dprime);
-
-						// Shorted the learned clause for efficiency.
-						removeRedundantLiterals();
-
-						// Install the new clause.
-						learn(dprime);
+						conflictProcessing(contradictedClauseLiterals);
 
 						return true;
 					}
@@ -316,6 +329,22 @@ bool Solver::checkForcing(int literal) {
 	}
 
 	return false;
+}
+
+void Solver::conflictProcessing(std::vector<int>& conflictClause) {
+
+	// Learn a new clause and return the depth we must return to for installation.
+	int dprime = resolveConflict(conflictClause);
+
+	// Remove literals from the trail.
+	backjump(dprime);
+
+	// Shorted the learned clause for efficiency.
+	removeRedundantLiterals();
+
+	// Install the new clause.
+	learn(dprime);
+
 }
 
 // Knuth step C6.
@@ -439,7 +468,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 			int reasonIndex = v.getReason();
 
 			// Process a reason if it exists. 
-			if (reasonIndex != -1) {
+			if (reasonIndex > 0) {
 
 				// This clause is participating in a resolution. Increase its activity. !!!!! NOT ENTIRELY SURE WHERE TO PUT THIS.
 				auto clauseActivity = clauses.at(reasonIndex).getActivity();
@@ -537,7 +566,7 @@ bool Solver::red(int lit, size_t stamp){
 
 	// If l is a decision literal, return false.
 	int reasonIndex = v0.getReason();
-	if (reasonIndex == -1) return false;
+	if (reasonIndex == 0) return false;
 
 	// Get the literals which comprise the clause.
 	auto& reasonLiterals = clauses.at(reasonIndex).getLiterals();
@@ -599,8 +628,8 @@ void Solver::backjump(int dprime) {
 		v.setOval(v.getValue());	// Set old value to current.
 		v.setValue(-1);				// Reset value.
 		v.setTloc(-1);				// Reset trail location !!! Did not see in step C8!
-		if (v.getReason() != -1) clauses.at(v.getReason()).setReasonFor(-1);
-		v.setReason(-1);			// Reset reason clause.
+		if (v.getReason() > 0) clauses.at(v.getReason()).setReasonFor(-1);
+		v.setReason(0);			// Reset reason clause.
 		if (!v.getHloc()) heap.push(&v); // Place on heap if not already there.
 	}
 
@@ -705,7 +734,7 @@ void Solver::addDecisionVariableToTrail(int variableNumber) {
 		variable.setValue(static_cast<int>(depth()));
 		agility = agility - (agility >> 13) + (((variable.getOval() - variable.getValue()) & 1) << 19);
 		variable.setTloc(static_cast<int>(trail.size()));
-		variable.setReason(-1);
+		variable.setReason(0);
 		trail.push_back(variable.getCurrentLiteralValue());
 	}
 #ifdef DEBUG
@@ -730,7 +759,7 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 		trail.push_back(variable.getCurrentLiteralValue());
 
 		// Let the clause know it is the reason for a literal. 
-		if (reason != -1) clauses.at(reason).setReasonFor(variable.getVariableNumber());
+		if (reason > 0) clauses.at(reason).setReasonFor(variable.getVariableNumber());
 	
 #ifdef DEBUG 
 
