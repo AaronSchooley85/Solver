@@ -102,7 +102,7 @@ class Solver {
 
 		// Used for the bimp table.
 		bool bimpProcessing(int l0);
-		std::vector<int> takeAccountOf(int l0);
+		bool takeAccountOf(int l0, int reason);
 
 		// High level conflict handling procedure.
 		void conflictProcessing(std::vector<int>&);

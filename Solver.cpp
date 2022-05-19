@@ -211,6 +211,9 @@ bool Solver::checkForcing(int literal) {
 	// If a conflict was encountered, return immediately.
 	if (G <= E) {
 		bool conflict = bimpProcessing(literal);
+
+		// If a conflict was detected, the trail has been modified
+		// and the next literal is now at position G.
 		if (conflict) return true;
 	}
 
@@ -585,7 +588,7 @@ bool Solver::red(int lit, size_t stamp){
 	if (reasonIndex == 0) return false;
 
 	// Get the literals which comprise the clause.
-	auto& reasonLiterals = clauses.at(reasonIndex).getLiterals();
+	auto reasonLiterals = (reasonIndex > 0) ? clauses.at(reasonIndex).getLiterals() : std::vector<int>{-reasonIndex}; // Had to ditch reference &. Fix this for performance.
 
 	// Iterate through all elements except the first.
 	for (size_t i = 1, len = reasonLiterals.size(); i < len; ++i) {
@@ -1060,27 +1063,33 @@ bool Solver::bimpProcessing(int bl) {
 		do {
 
 			// For all the literals forced by the existence of "literal" on trail.
-			for (int forced : bimp.at(bl)) {
+			if (bimp.count(bl)) {
+				for (int forced : bimp.at(bl)) {
 
-				// Process the literal. A non-empty vector is returned if a conflict exists. 
-				std::vector<int> conflict = takeAccountOf(forced);
+					// Process the literal. A non-empty vector is returned if a conflict exists. 
+					bool conflict = takeAccountOf(forced, bl);
 
-				// Did a conflict occur?
-				if (conflict.size()) {
-					int d = depth();
-					if (!fullRun) {
-						if (d == 0) solutionFailed;
-						else conflictProcessing(conflict);
-						return true;
-					}
-					else {
-						if (conflicts.at(d) == 0) conflicts.at(d) = bl; // Correct? Don't use the conflict vector, right?
+					// Did a conflict occur?
+					if (conflict) {
+						int d = depth();
+						if (!fullRun) {
+							if (d == 0) solutionFailed;
+							else {
+								std::vector<int> conflictVector{bl^1, forced};
+								conflictProcessing(conflictVector);
+							}
+							return true;
+						}
+						else {
+							if (conflicts.at(d) == 0) conflicts.at(d) = bl; // Correct? Don't use the conflict vector, right?
+						}
 					}
 				}
 			}
 
 			// Update the bimp literal if the bimp processing added things to the trail.
-			if (h < trail.size()) bl = -vfl(trail.at(h++)).getReason();
+			if (h < trail.size())
+				bl = trail.at(h++);
 
 		} while (h < trail.size()); // We'll do this while bimp processing is adding things to the trail. 
 	}
@@ -1090,35 +1099,29 @@ bool Solver::bimpProcessing(int bl) {
 
 // Knuth's "take account of" procedure in his implementation
 // of algorithm C.
-std::vector<int> Solver::takeAccountOf(int l0) {
+bool Solver::takeAccountOf(int l0, int reason) {
 
 	std::vector<int> conflict;
 
-	if (bimp.count(l0)) {
-		for (auto lprime : bimp.at(l0)) {
-			auto& v = vfl(lprime);
+	auto& v = vfl(l0);
 
-			// Don't do anything if l0 is true.
-			if (!v.isTrue(lprime)) {
+	// Don't do anything if l0 is true.
+	if (!v.isTrue(l0)) {
 
-				// If it's false, we've hit a conflict.
-				if (v.isFalse(lprime)) {
-					conflict.push_back(l0);
-					conflict.push_back(lprime);
-					return conflict;
-				}
-				// If it's free, make it true by placing it on the trail.
-				else {
-					addForcedLiteralToTrail(lprime, -l0);
+		// If it's false, we've hit a conflict.
+		if (v.isFalse(l0)) {
+			return true;
+		}
+		// If it's free, make it true by placing it on the trail.
+		else {
+			addForcedLiteralToTrail(l0, -reason);
 #ifdef DEBUG
-					std::cout << "Bimp processing placing " << lprime << " on trail\n";
+			std::cout << "Bimp processing placing " << lprime << " on trail\n";
 #endif
-				}
-			}
 		}
 	}
 
-	return conflict;
+	return false;
 }
 
 bool Solver::checkVectorForDuplicates(std::vector<int>& v) {
