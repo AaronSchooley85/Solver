@@ -99,7 +99,10 @@ class Solver {
 		// Add elements to trail.
 		void addDecisionVariableToTrail(int variableNumber);
 		void addForcedLiteralToTrail(int literal, int reason);
-		std::vector<int> bimpProcessing(int l0);
+
+		// Used for the bimp table.
+		bool bimpProcessing(int l0);
+		std::vector<int> takeAccountOf(int l0);
 
 		// High level conflict handling procedure.
 		void conflictProcessing(std::vector<int>&);
