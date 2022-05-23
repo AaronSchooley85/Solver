@@ -58,7 +58,7 @@ Solver::Solver(cnf CNF, int seedArgument) {
 				}
 				else {
 					// Add the literal to trail. No reason for unit clauses.
-					addForcedLiteralToTrail(literal, -1);
+					addForcedLiteralToTrail(literal, 0);
 				}
 				break; }
 				  // Binary clauses go into the bimp table.
@@ -730,7 +730,7 @@ void Solver::learn(int dprime) {
 	else {
 
 		// Add unit clause to trail. Unit clauses do not have reasons.
-		addForcedLiteralToTrail(clause.front(), -1);
+		addForcedLiteralToTrail(clause.front(), 0);
 
 #ifdef DEBUG
 		if (clause.size() != 1) {
@@ -1055,13 +1055,33 @@ bool Solver::bimpProcessing(int bl) {
 
 	// First, we'd like to see if our bimp table forces any additional
 	// literals or finds any conflicts since it is fast.
-	if (bimp.count(bl)){
+	if (bimp.count(bl)) {
 
 		// Get the current trail size and assign bimp literal.
 		int h = trail.size();
 
-		do {
+		// Place all the forced literals on the trail.
+		for (int forced : bimp.at(bl)) {
+			bool conflict = takeAccountOf(forced, bl);
 
+			// Did a conflict occur?
+			if (conflict) {
+				int d = depth();
+				if (!fullRun) {
+					if (d == 0) solutionFailed = true;
+					else {
+						std::vector<int> conflictVector{ bl ^ 1, forced }; // forced ^ 1 ?
+						conflictProcessing(conflictVector);
+					}
+					return true;
+				}
+				else {
+					if (conflicts.at(d) == 0) conflicts.at(d) = bl; // Correct? Don't use the conflict vector, right?
+				}
+			}
+		}
+
+		while (h < trail.size()) {
 			// For all the literals forced by the existence of "literal" on trail.
 			if (bimp.count(bl)) {
 				for (int forced : bimp.at(bl)) {
@@ -1075,7 +1095,7 @@ bool Solver::bimpProcessing(int bl) {
 						if (!fullRun) {
 							if (d == 0) solutionFailed;
 							else {
-								std::vector<int> conflictVector{bl^1, forced};
+								std::vector<int> conflictVector{ bl ^ 1, forced };
 								conflictProcessing(conflictVector);
 							}
 							return true;
@@ -1086,14 +1106,8 @@ bool Solver::bimpProcessing(int bl) {
 					}
 				}
 			}
-
-			// Update the bimp literal if the bimp processing added things to the trail.
-			if (h < trail.size())
-				bl = trail.at(h++);
-
-		} while (h < trail.size()); // We'll do this while bimp processing is adding things to the trail. 
+		}
 	}
-
 	return false;
 }
 
