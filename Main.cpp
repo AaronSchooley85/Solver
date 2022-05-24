@@ -102,7 +102,7 @@ int main() {
 		int hundredth = numRuns / 100;
 		for (int i = 1; i <= numRuns; ++i) {
 
-			if (i % hundredth == 0) std::cout << "\r" << file << ": " << (100.0 * i) / numRuns << "%";
+			if (hundredth ? i % hundredth == 0 : true) std::cout << "\r" << file << ": " << (100.0 * i) / numRuns << "%";
 
 		//	std::cout << "\nRun " << i << "\n";
 			Solver S(CNF, i);
