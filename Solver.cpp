@@ -588,7 +588,8 @@ bool Solver::red(int lit, size_t stamp){
 	if (reasonIndex == 0) return false;
 
 	// Get the literals which comprise the clause.
-	auto reasonLiterals = (reasonIndex > 0) ? clauses.at(reasonIndex).getLiterals() : std::vector<int>{-reasonIndex}; // Had to ditch reference &. Fix this for performance.
+	// Note the dummy "0" when the reason index is negative. This is to keep the vector length 2 for the for loop.
+	auto reasonLiterals = (reasonIndex > 0) ? clauses.at(reasonIndex).getLiterals() : std::vector<int>{0, -reasonIndex}; // Had to ditch reference &. Fix this for performance?
 
 	// Iterate through all elements except the first.
 	for (size_t i = 1, len = reasonLiterals.size(); i < len; ++i) {
@@ -1070,18 +1071,21 @@ bool Solver::bimpProcessing(int bl) {
 				if (!fullRun) {
 					if (d == 0) solutionFailed = true;
 					else {
-						std::vector<int> conflictVector{ bl ^ 1, forced }; // forced ^ 1 ?
+						std::vector<int> conflictVector{ bl ^ 1, forced ^ 1 }; // forced ^ 1 ?
 						conflictProcessing(conflictVector);
 					}
 					return true;
 				}
 				else {
-					if (conflicts.at(d) == 0) conflicts.at(d) = bl; // Correct? Don't use the conflict vector, right?
+					if (conflicts.at(d) == 0) conflicts.at(d) = bl ^ 1; // Correct? Don't use the conflict vector, right?
 				}
 			}
 		}
 
 		while (h < trail.size()) {
+
+			int bl = trail.at(h++);
+
 			// For all the literals forced by the existence of "literal" on trail.
 			if (bimp.count(bl)) {
 				for (int forced : bimp.at(bl)) {
@@ -1095,13 +1099,13 @@ bool Solver::bimpProcessing(int bl) {
 						if (!fullRun) {
 							if (d == 0) solutionFailed;
 							else {
-								std::vector<int> conflictVector{ bl ^ 1, forced };
+								std::vector<int> conflictVector{ bl ^ 1, forced ^ 1 };
 								conflictProcessing(conflictVector);
 							}
 							return true;
 						}
 						else {
-							if (conflicts.at(d) == 0) conflicts.at(d) = bl; // Correct? Don't use the conflict vector, right?
+							if (conflicts.at(d) == 0) conflicts.at(d) = bl ^ 1; // Correct? bl or bl ^ 1?  Don't use the conflict vector, right?
 						}
 					}
 				}
@@ -1130,7 +1134,7 @@ bool Solver::takeAccountOf(int l0, int reason) {
 		else {
 			addForcedLiteralToTrail(l0, -reason);
 #ifdef DEBUG
-			std::cout << "Bimp processing placing " << lprime << " on trail\n";
+			std::cout << "Bimp processing placing " << l0 << " on trail\n";
 #endif
 		}
 	}

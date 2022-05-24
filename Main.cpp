@@ -89,9 +89,9 @@ int main() {
 	// Perform unit tests on each file.
 	for (auto file : testFiles) {
 
-		//auto CNF = readDimacs(file);
+		auto CNF = readDimacs(file);
 		//auto CNF = waerden(5,5,178);
-		std::vector<std::vector<int>> CNF{ {-1,2,3} , {1,3} , {1,4} , {-4,6} };
+		//std::vector<std::vector<int>> CNF{ {-1,2,3} , {1,3} , {1,4} , {-4,6} };
 		//std::vector<std::vector<int>> CNF{ {-1}, {-2} , {1,2}};
 
 		// target is "true" if "unsat" not in the filename. 
@@ -105,7 +105,7 @@ int main() {
 			if (i % hundredth == 0) std::cout << "\r" << file << ": " << (100.0 * i) / numRuns << "%";
 
 		//	std::cout << "\nRun " << i << "\n";
-			Solver S(CNF);
+			Solver S(CNF, i);
 			auto solution = S.Solve();
 			if (solution.front() != target) {
 				std::cout << "Unit test failed on file " << file << "\n";
