@@ -72,7 +72,7 @@ private:
 
 
 	// The reason for the literal assignment. It is an index to a clause.
-	int reason = -1;
+	int reason = 0;
 
 	// variable attributes. 
 	int variable = -1;

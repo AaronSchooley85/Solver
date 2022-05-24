@@ -58,10 +58,33 @@ Solver::Solver(cnf CNF, int seedArgument) {
 				}
 				else {
 					// Add the literal to trail. No reason for unit clauses.
-					addForcedLiteralToTrail(literal, -1);
+					addForcedLiteralToTrail(literal, 0);
 				}
 				break; }
+				  // Binary clauses go into the bimp table.
+			case 2: {
 
+				auto l0 = encoded.at(0);
+				auto notl0 = l0 ^ 1;
+				auto l1 = encoded.at(1);
+				auto notl1 = l1 ^ 1;
+
+				// Ensure entries exist for their complements.
+				if (!bimp.count(notl0)) bimp.emplace(notl0, std::vector<int>());
+				if (!bimp.count(notl1)) bimp.emplace(notl1, std::vector<int>());
+
+				// Add l1 to not v0 vector if not already present.
+				auto& v0 = bimp.at(notl0);
+				auto loc = std::find(v0.begin(), v0.end(), l1);
+				if (loc == v0.end()) v0.push_back(l1);
+
+				// Repeat for v1.
+				auto& v1 = bimp.at(notl1);
+				loc = std::find(v1.begin(), v1.end(), l0);
+				if (loc == v1.end()) v1.push_back(l0);
+				break;
+
+			}
 			// Standard clause of length greater than 1. 
 			default:
 				auto clauseNumber = clauses.size();
@@ -81,6 +104,7 @@ Solver::Solver(cnf CNF, int seedArgument) {
 
 	// Record the number of variables in the problem.
 	n = variables.size() - 1;
+	E = trail.size();
 
 	/*
 	std::cout << "Number of variables: " << n << "\n";
@@ -182,6 +206,17 @@ std::vector<bool> Solver::Solve() {
 // Return value is status of conflict. True -> conflict detected. False -> no conflict.
 bool Solver::checkForcing(int literal) {
 
+	// Before performing propagation via watched variables,
+	// see if the bimp table can find contradictions first.
+	// If a conflict was encountered, return immediately.
+	if (G <= E) {
+		bool conflict = bimpProcessing(literal);
+
+		// If a conflict was detected, the trail has been modified
+		// and the next literal is now at position G.
+		if (conflict) return true;
+	}
+
 #ifdef DEBUG
 	std::cout << "Processing literal " << literal << "\n";
 #endif
@@ -268,6 +303,11 @@ bool Solver::checkForcing(int literal) {
 					std::cout << "Could not swap. Adding " << l0 << " to trail.\n";
 #endif
 					addForcedLiteralToTrail(l0, contradictedClauseNumber);
+
+					// We placed a literal on the trail. See if that causes conflicting
+					// propagations via the bimp table. 
+					bool conflict = bimpProcessing(l0);
+					if (conflict) return true;
 				}
 				// We must resolve a conflict.
 				else {
@@ -282,17 +322,7 @@ bool Solver::checkForcing(int literal) {
 					// We resolve conflicts if we are not at level 0 and not doing a full run.
 					else if (!fullRun) {
 
-						// Learn a new clause and return the depth we must return to for installation.
-						int dprime = resolveConflict(contradictedClauseLiterals);
-
-						// Remove literals from the trail.
-						backjump(dprime);
-
-						// Shorted the learned clause for efficiency.
-						removeRedundantLiterals();
-
-						// Install the new clause.
-						learn(dprime);
+						conflictProcessing(contradictedClauseLiterals);
 
 						return true;
 					}
@@ -301,7 +331,6 @@ bool Solver::checkForcing(int literal) {
 						// Record first conflict for this level.
 						int d = depth();
 						if (conflicts.at(d) == 0) conflicts.at(d) = contradictedClauseNumber;
-						//return false; // !!!!!!! SHOULD THIS BE HERE?
 					}
 
 				}
@@ -316,6 +345,22 @@ bool Solver::checkForcing(int literal) {
 	}
 
 	return false;
+}
+
+void Solver::conflictProcessing(std::vector<int>& conflictClause) {
+
+	// Learn a new clause and return the depth we must return to for installation.
+	int dprime = resolveConflict(conflictClause);
+
+	// Remove literals from the trail.
+	backjump(dprime);
+
+	// Shorted the learned clause for efficiency.
+	removeRedundantLiterals();
+
+	// Install the new clause.
+	learn(dprime);
+
 }
 
 // Knuth step C6.
@@ -439,7 +484,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 			int reasonIndex = v.getReason();
 
 			// Process a reason if it exists. 
-			if (reasonIndex != -1) {
+			if (reasonIndex > 0) {
 
 				// This clause is participating in a resolution. Increase its activity. !!!!! NOT ENTIRELY SURE WHERE TO PUT THIS.
 				auto clauseActivity = clauses.at(reasonIndex).getActivity();
@@ -449,6 +494,9 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 				// Blit literals at index greater than 0.
 				auto& reasonClause = clauses.at(reasonIndex).getLiterals();
 				for (size_t i = 1, len = reasonClause.size(); i < len; ++i) blit(reasonClause.at(i));
+			}
+			else if (reasonIndex < 0) {
+				blit(-reasonIndex);
 			}
 		}
 	}
@@ -537,10 +585,11 @@ bool Solver::red(int lit, size_t stamp){
 
 	// If l is a decision literal, return false.
 	int reasonIndex = v0.getReason();
-	if (reasonIndex == -1) return false;
+	if (reasonIndex == 0) return false;
 
 	// Get the literals which comprise the clause.
-	auto& reasonLiterals = clauses.at(reasonIndex).getLiterals();
+	// Note the dummy "0" when the reason index is negative. This is to keep the vector length 2 for the for loop.
+	auto reasonLiterals = (reasonIndex > 0) ? clauses.at(reasonIndex).getLiterals() : std::vector<int>{0, -reasonIndex}; // Had to ditch reference &. Fix this for performance?
 
 	// Iterate through all elements except the first.
 	for (size_t i = 1, len = reasonLiterals.size(); i < len; ++i) {
@@ -599,8 +648,8 @@ void Solver::backjump(int dprime) {
 		v.setOval(v.getValue());	// Set old value to current.
 		v.setValue(-1);				// Reset value.
 		v.setTloc(-1);				// Reset trail location !!! Did not see in step C8!
-		if (v.getReason() != -1) clauses.at(v.getReason()).setReasonFor(-1);
-		v.setReason(-1);			// Reset reason clause.
+		if (v.getReason() > 0) clauses.at(v.getReason()).setReasonFor(-1);
+		v.setReason(0);			// Reset reason clause.
 		if (!v.getHloc()) heap.push(&v); // Place on heap if not already there.
 	}
 
@@ -682,7 +731,7 @@ void Solver::learn(int dprime) {
 	else {
 
 		// Add unit clause to trail. Unit clauses do not have reasons.
-		addForcedLiteralToTrail(clause.front(), -1);
+		addForcedLiteralToTrail(clause.front(), 0);
 
 #ifdef DEBUG
 		if (clause.size() != 1) {
@@ -705,8 +754,9 @@ void Solver::addDecisionVariableToTrail(int variableNumber) {
 		variable.setValue(static_cast<int>(depth()));
 		agility = agility - (agility >> 13) + (((variable.getOval() - variable.getValue()) & 1) << 19);
 		variable.setTloc(static_cast<int>(trail.size()));
-		variable.setReason(-1);
+		variable.setReason(0);
 		trail.push_back(variable.getCurrentLiteralValue());
+		E = trail.size();
 	}
 #ifdef DEBUG
 	else {
@@ -728,9 +778,10 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 		variable.setTloc(static_cast<int>(trail.size()));
 		variable.setReason(reason);
 		trail.push_back(variable.getCurrentLiteralValue());
+		E = trail.size();
 
 		// Let the clause know it is the reason for a literal. 
-		if (reason != -1) clauses.at(reason).setReasonFor(variable.getVariableNumber());
+		if (reason > 0) clauses.at(reason).setReasonFor(variable.getVariableNumber());
 	
 #ifdef DEBUG 
 
@@ -999,6 +1050,96 @@ void Solver::flushProcessing() {
 			backjump(dprime);
 		}
 	}
+}
+
+bool Solver::bimpProcessing(int bl) {
+
+	// First, we'd like to see if our bimp table forces any additional
+	// literals or finds any conflicts since it is fast.
+	if (bimp.count(bl)) {
+
+		// Get the current trail size and assign bimp literal.
+		int h = trail.size();
+
+		// Place all the forced literals on the trail.
+		for (int forced : bimp.at(bl)) {
+			bool conflict = takeAccountOf(forced, bl);
+
+			// Did a conflict occur?
+			if (conflict) {
+				int d = depth();
+				if (!fullRun) {
+					if (d == 0) solutionFailed = true;
+					else {
+						std::vector<int> conflictVector{ bl ^ 1, forced ^ 1 }; // forced ^ 1 ?
+						conflictProcessing(conflictVector);
+					}
+					return true;
+				}
+				else {
+					if (conflicts.at(d) == 0) conflicts.at(d) = bl ^ 1; // Correct? Don't use the conflict vector, right?
+				}
+			}
+		}
+
+		while (h < trail.size()) {
+
+			int bl = trail.at(h++);
+
+			// For all the literals forced by the existence of "literal" on trail.
+			if (bimp.count(bl)) {
+				for (int forced : bimp.at(bl)) {
+
+					// Process the literal. A non-empty vector is returned if a conflict exists. 
+					bool conflict = takeAccountOf(forced, bl);
+
+					// Did a conflict occur?
+					if (conflict) {
+						int d = depth();
+						if (!fullRun) {
+							if (d == 0) solutionFailed;
+							else {
+								std::vector<int> conflictVector{ bl ^ 1, forced ^ 1 };
+								conflictProcessing(conflictVector);
+							}
+							return true;
+						}
+						else {
+							if (conflicts.at(d) == 0) conflicts.at(d) = bl ^ 1; // Correct? bl or bl ^ 1?  Don't use the conflict vector, right?
+						}
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
+// Knuth's "take account of" procedure in his implementation
+// of algorithm C.
+bool Solver::takeAccountOf(int l0, int reason) {
+
+	std::vector<int> conflict;
+
+	auto& v = vfl(l0);
+
+	// Don't do anything if l0 is true.
+	if (!v.isTrue(l0)) {
+
+		// If it's false, we've hit a conflict.
+		if (v.isFalse(l0)) {
+			return true;
+		}
+		// If it's free, make it true by placing it on the trail.
+		else {
+			addForcedLiteralToTrail(l0, -reason);
+#ifdef DEBUG
+			std::cout << "Bimp processing placing " << l0 << " on trail\n";
+#endif
+		}
+	}
+
+	return false;
 }
 
 bool Solver::checkVectorForDuplicates(std::vector<int>& v) {

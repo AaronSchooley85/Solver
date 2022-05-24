@@ -7,6 +7,7 @@
 #include "Heap.h"
 #include "Clause.h"
 #include "Variable.h"
+#include <unordered_map>
 
 
 class Solver {
@@ -32,6 +33,9 @@ class Solver {
 		// Index of next trail element to be processed.
 		int G = 0;
 
+		// Used by bimp table processing.
+		int E = 0;
+
 		// Unique stamp value.
 		size_t stamp = 0;
 
@@ -44,6 +48,7 @@ class Solver {
 		// Trail of literals and a record of the levels.
 		std::vector<int> trail; // F = trail.size()
 		std::vector<int> levels;
+		std::unordered_map<int, std::vector<int>> bimp;
 
 		// Reusable vector for temporarily holding learned clauses.
 		std::vector<int> b;
@@ -94,6 +99,13 @@ class Solver {
 		// Add elements to trail.
 		void addDecisionVariableToTrail(int variableNumber);
 		void addForcedLiteralToTrail(int literal, int reason);
+
+		// Used for the bimp table.
+		bool bimpProcessing(int l0);
+		bool takeAccountOf(int l0, int reason);
+
+		// High level conflict handling procedure.
+		void conflictProcessing(std::vector<int>&);
 
 		// Modify LS vector.
 		void pushLevelStamp(int value);
