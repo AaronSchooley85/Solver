@@ -1,9 +1,8 @@
 #include "Clause.h"
 
 Clause::Clause(std::vector<int> clause) {
-	for (auto literal : clause) {
-		literals.push_back(literal);
-	}
+	literals.reserve(clause.size());
+	literals = clause;
 }
 
 std::vector<int>& Clause::getLiterals() { return literals; }

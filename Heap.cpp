@@ -42,7 +42,7 @@ Variable* Heap::queryMaxFreeVariable() {
 	Variable* v;
 	int i = 0;
 	do {
-		v = heap.at(i++);
+		v = heap[i++];
 	} while (!v->isFree());
 
 	return v;

@@ -13,9 +13,11 @@ Solver::Solver(cnf CNF, int seedArgument) {
 
 	// We will use 1-based indexing to align with Knuth's text.
 	// Create dummy entries here.
+	variables.reserve(10000000);
 	variables.push_back(Variable(0));
+	clauses.reserve(10000000);
 	clauses.push_back(Clause({}));
-	levels.push_back(0); // Level 0 (level k is at levels[k] ) always starts at trail index 0.
+	levels.emplace_back(0); // Level 0 (level k is at levels[k] ) always starts at trail index 0.
 
 	// Loop through the CNF and process each clause within.
 	for (auto& clause : CNF) {
@@ -28,7 +30,7 @@ Solver::Solver(cnf CNF, int seedArgument) {
 		// Ensure that a variable object exists corresponding to each literal in the clause.
 		for (auto& literal : encoded) {
 			size_t variableNumber = literal >> 1;
-			while (variables.size() <= variableNumber) variables.push_back(Variable(variables.size()));
+			while (variables.size() <= variableNumber) variables.emplace_back(Variable(variables.size()));
 		}
 
 		// Add the clause to our collection of clauses. Stored encoded via "2k/2k+1" scheme.
@@ -64,9 +66,9 @@ Solver::Solver(cnf CNF, int seedArgument) {
 				  // Binary clauses go into the bimp table.
 			case 2: {
 
-				auto l0 = encoded.at(0);
+				auto l0 = encoded[0];
 				auto notl0 = l0 ^ 1;
-				auto l1 = encoded.at(1);
+				auto l1 = encoded[1];
 				auto notl1 = l1 ^ 1;
 
 				// Ensure entries exist for their complements.
@@ -74,24 +76,24 @@ Solver::Solver(cnf CNF, int seedArgument) {
 				if (!bimp.count(notl1)) bimp.emplace(notl1, std::vector<int>());
 
 				// Add l1 to not v0 vector if not already present.
-				auto& v0 = bimp.at(notl0);
+				auto& v0 = bimp[notl0];
 				auto loc = std::find(v0.begin(), v0.end(), l1);
-				if (loc == v0.end()) v0.push_back(l1);
+				if (loc == v0.end()) v0.emplace_back(l1);
 
 				// Repeat for v1.
-				auto& v1 = bimp.at(notl1);
+				auto& v1 = bimp[notl1];
 				loc = std::find(v1.begin(), v1.end(), l0);
-				if (loc == v1.end()) v1.push_back(l0);
+				if (loc == v1.end()) v1.emplace_back(l0);
 				break;
 
 			}
 			// Standard clause of length greater than 1. 
 			default:
 				auto clauseNumber = clauses.size();
-				clauses.push_back(Clause(encoded));
+				clauses.emplace_back(Clause(encoded));
 				clauses.back().setClauseNumber(clauseNumber);
-				auto l0 = clauses.back().getLiterals().at(0);
-				auto l1 = clauses.back().getLiterals().at(1);
+				auto l0 = clauses.back().getLiterals()[0];
+				auto l1 = clauses.back().getLiterals()[1];
 				auto& v0 = vfl(l0);
 				auto& v1 = vfl(l1);
 				v0.addToWatch(clauseNumber, l0 % 2 == 0);
@@ -114,7 +116,7 @@ Solver::Solver(cnf CNF, int seedArgument) {
 
 	// Add free variables to heap.
 	std::vector<Variable*> shuffledVariablePointers;
-	for (int i = 1; i < variables.size(); ++i) shuffledVariablePointers.push_back(&variables.at(i));
+	for (int i = 1; i < variables.size(); ++i) shuffledVariablePointers.emplace_back(&variables[i]);
 
 	// Get our random generator seed. Use supplied argument if provided, else generate a random seed.
 	int seed;
@@ -157,7 +159,7 @@ std::vector<bool> Solver::Solve() {
 					// Construct and return boolean vector.
 					std::vector<bool> solution(n + 1);
 					solution.front() = true;
-					for (auto t : trail) solution.at(t >> 1) = t & 1 ? false : true;
+					for (auto t : trail) solution[t >> 1] = t & 1 ? false : true;
 					return solution;
 				}
 				// Otherwise we "succeeded" because we ignored conflicts for a full run.
@@ -192,7 +194,7 @@ std::vector<bool> Solver::Solve() {
 		// G will be pointing to it already. Immediately take from trail.
 		bool conflictEncountered = false;
 		do {
-			auto literal = trail.at(G++);
+			auto literal = trail[G++];
 			conflictEncountered = checkForcing(literal);
 			if (conflictEncountered && solutionFailed) return std::vector<bool>{false};
 		} while (conflictEncountered);
@@ -237,7 +239,7 @@ bool Solver::checkForcing(int literal) {
 	for (auto contradictedClauseNumber : contradictedWatcherIndicesToProcess){
 
 		// Using the clause index, get the clause object which contains the contradicted literal.
-		auto& contradictedClause = clauses.at(contradictedClauseNumber);
+		auto& contradictedClause = clauses[contradictedClauseNumber];
 
 		// Get the literals which comprise this clause.
 		auto& contradictedClauseLiterals = contradictedClause.getLiterals();
@@ -245,8 +247,9 @@ bool Solver::checkForcing(int literal) {
 		// Algorithm C requires the literal at index 1 of the clause to be the contradicted literal.
 		// Swap first two literals if the element at index 1 is not the contradicted literal.
 		// This is a branchless swap which has proven to be a bit faster. 
-		bool swap = contradictedClauseLiterals.at(1) != contradictedLiteral;
-		std::iter_swap(contradictedClauseLiterals.begin(), contradictedClauseLiterals.begin() + swap);
+		//bool swap = contradictedClauseLiterals[1] != contradictedLiteral;
+		//std::iter_swap(contradictedClauseLiterals.begin(), contradictedClauseLiterals.begin() + swap);
+		if (contradictedClauseLiterals[1] != contradictedLiteral) std::swap(contradictedClauseLiterals[0], contradictedClauseLiterals[1]);
 
 #ifdef DEBUG
 		// Sanity check.
@@ -275,7 +278,7 @@ bool Solver::checkForcing(int literal) {
 			for (size_t i = 2, n = contradictedClauseLiterals.size(); i < n; ++i) {
 
 				// Get the candidate literal and its associated variable object.
-				auto lx = contradictedClauseLiterals.at(i);
+				auto lx = contradictedClauseLiterals[i];
 				auto& vx = vfl(lx);
 
 				// If the new variable has not been set false.
@@ -286,7 +289,7 @@ bool Solver::checkForcing(int literal) {
 #endif
 
 					// Swap elements, add clause to new watched variable, and remove from old variable's watch.
-					std::swap(contradictedClauseLiterals.at(1), contradictedClauseLiterals.at(i));
+					std::swap(contradictedClauseLiterals[1], contradictedClauseLiterals[i]);
 					vx.addToWatch(contradictedClauseNumber, !(lx & 1));
 					variable.removeFromWatch(contradictedClauseNumber, !(contradictedLiteral & 1));
 					swapSuccess = true;
@@ -330,7 +333,7 @@ bool Solver::checkForcing(int literal) {
 					else {
 						// Record first conflict for this level.
 						int d = depth();
-						if (conflicts.at(d) == 0) conflicts.at(d) = contradictedClauseNumber;
+						if (conflicts[d] == 0) conflicts[d] = contradictedClauseNumber;
 					}
 
 				}
@@ -367,7 +370,7 @@ void Solver::conflictProcessing(std::vector<int>& conflictClause) {
 void Solver::makeADecision() {
 
 	// Record trail index at which this level begins.
-	levels.push_back(trail.size());
+	levels.emplace_back(trail.size());
 
 	// Should this be done here?
 	// Make sure there's a spot in LS for every level.
@@ -375,7 +378,7 @@ void Solver::makeADecision() {
 
 	// Ensure we have a large enough conflicts vector.
 	// Will be zeroed at the beginning of each full run.
-	while (conflicts.size() <= depth()) conflicts.push_back(0);
+	while (conflicts.size() <= depth()) conflicts.emplace_back(0);
 
 #ifdef DEBUG
 	std::cout << "########## " << "LEVEL " << depth() << " ###########\n";
@@ -421,7 +424,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	// Data needed for blit routine below.
 	int count = 0;
 	b.clear();
-	b.push_back(-1);
+	b.emplace_back(-1);
 	incrementStamp();
 	int dprime = 0;
 	int learnCount = clauses.size() - minl;
@@ -451,7 +454,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 				rescale |= v.bumpActivity(DEL); // Anytime we bump activity we may corrupt heap. Reheapify before popping heap? Set corrupted flag?
 				count += (p == currentDepth);
 				if (p < currentDepth) {
-					b.push_back(v.getCurrentLiteralValue() ^ 1);
+					b.emplace_back(v.getCurrentLiteralValue() ^ 1);
 					dprime = std::max(p, dprime);
 					int levelStamp = getLevelStamp(p);
 					if (levelStamp <= stamp) setLevelStamp(p, stamp + (levelStamp == stamp));
@@ -461,7 +464,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	};
 
 	// Apply blit algorithm to all literals at index GREATER THAN 0 in clause.
-	for (size_t i = 1, len = clause.size(); i < len; ++i) blit(clause.at(i));
+	for (size_t i = 1, len = clause.size(); i < len; ++i) blit(clause[i]);
 
 
 	// Get the highest trail index of ALL literals in the clause.
@@ -476,7 +479,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 #endif
 
 	while (count > 0) {
-		auto l = trail.at(t--); // Get literal furthest up the trail.
+		auto l = trail[t--]; // Get literal furthest up the trail.
 		auto& v = vfl(l);
 		if (v.getStamp() == stamp) {
 
@@ -487,13 +490,13 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 			if (reasonIndex > 0) {
 
 				// This clause is participating in a resolution. Increase its activity. !!!!! NOT ENTIRELY SURE WHERE TO PUT THIS.
-				auto clauseActivity = clauses.at(reasonIndex).getActivity();
+				auto clauseActivity = clauses[reasonIndex].getActivity();
 				//clauses.at(reasonIndex).setActivity(clauseActivity + std::pow(clauseRho, -learnCount));
-				clauses.at(reasonIndex).setActivity(clauseActivity + std::pow(clauseRho, -totalLearnedClauses)); // So far no difference. Check on larger problems?
+				clauses[reasonIndex].setActivity(clauseActivity + std::pow(clauseRho, -totalLearnedClauses)); // So far no difference. Check on larger problems?
 
 				// Blit literals at index greater than 0.
-				auto& reasonClause = clauses.at(reasonIndex).getLiterals();
-				for (size_t i = 1, len = reasonClause.size(); i < len; ++i) blit(reasonClause.at(i));
+				auto& reasonClause = clauses[reasonIndex].getLiterals();
+				for (size_t i = 1, len = reasonClause.size(); i < len; ++i) blit(reasonClause[i]);
 			}
 			else if (reasonIndex < 0) {
 				blit(-reasonIndex);
@@ -505,7 +508,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	// all variables by that threshold. 
 	if (rescale) {
 		for (size_t i = 1, len = variables.size(); i < len; ++i) {
-			auto &variable = variables.at(i);
+			auto &variable = variables[i];
 			auto currentActivity = variable.getActivity();
 			variable.setActivity(currentActivity / variable.threshold);
 		}
@@ -525,7 +528,7 @@ int Solver::resolveConflict(const std::vector<int>& clause, int d) {
 	// Find the final stamped literal.
 	int lprime = -1;
 	do {
-		lprime = trail.at(t--);
+		lprime = trail[t--];
 	} while (vfl(lprime).getStamp() != stamp);
 
 #ifdef DEBUG
@@ -560,7 +563,7 @@ void Solver::removeRedundantLiterals() {
 	int i = 1;
 	while (i < clause.size()) {
 
-		int bi = clause.at(i);
+		int bi = clause[i];
 		int level = vfl(bi).getValue() >> 1;
 		int levelStamp = getLevelStamp(level);
 
@@ -589,12 +592,12 @@ bool Solver::red(int lit, size_t stamp){
 
 	// Get the literals which comprise the clause.
 	// Note the dummy "0" when the reason index is negative. This is to keep the vector length 2 for the for loop.
-	auto reasonLiterals = (reasonIndex > 0) ? clauses.at(reasonIndex).getLiterals() : std::vector<int>{0, -reasonIndex}; // Had to ditch reference &. Fix this for performance?
+	auto reasonLiterals = (reasonIndex > 0) ? clauses[reasonIndex].getLiterals() : std::vector<int>{0, -reasonIndex}; // Had to ditch reference &. Fix this for performance?
 
 	// Iterate through all elements except the first.
 	for (size_t i = 1, len = reasonLiterals.size(); i < len; ++i) {
 
-		int l = reasonLiterals.at(i);
+		int l = reasonLiterals[i];
 		auto& v = vfl(l);
 		int level = v.getValue() >> 1;
 		if (level > 0) {
@@ -620,18 +623,18 @@ bool Solver::red(int lit, size_t stamp){
 }
 
 
-int Solver::getLevelStamp(int index) { return LS.at(index); }
+int Solver::getLevelStamp(int index) { return LS[index]; }
 
-void Solver::setLevelStamp(int index, int value) { LS.at(index) = value; }
+void Solver::setLevelStamp(int index, int value) { LS[index] = value; }
 
-void Solver::pushLevelStamp(int value) { LS.push_back(value); }
+void Solver::pushLevelStamp(int value) { LS.emplace_back(value); }
 
 void Solver::popLevelStamp() { LS.pop_back(); }
 
 // Remove literals from the trail until the specified level is reached.
 void Solver::backjump(int dprime) {
 
-	size_t target = levels.at(dprime + 1); // Find where the next level begins.
+	size_t target = levels[dprime + 1]; // Find where the next level begins.
 
 #ifdef DEBUG 
 	std::cout << "Backjumping to d' : " << dprime << "\n";
@@ -648,7 +651,7 @@ void Solver::backjump(int dprime) {
 		v.setOval(v.getValue());	// Set old value to current.
 		v.setValue(-1);				// Reset value.
 		v.setTloc(-1);				// Reset trail location !!! Did not see in step C8!
-		if (v.getReason() > 0) clauses.at(v.getReason()).setReasonFor(-1);
+		if (v.getReason() > 0) clauses[v.getReason()].setReasonFor(-1);
 		v.setReason(0);			// Reset reason clause.
 		if (!v.getHloc()) heap.push(&v); // Place on heap if not already there.
 	}
@@ -690,7 +693,7 @@ void Solver::learn(int dprime) {
 		// Ensure we are watching literals defined on level d.
 		bool found = false;
 		for (size_t i = 1, len = clause.size(); i < len; ++i) {
-			auto& v = vfl(clause.at(i));
+			auto& v = vfl(clause[i]);
 			auto level = v.getValue() >> 1;
 			if (level == dprime) {
 				found = true;
@@ -700,7 +703,7 @@ void Solver::learn(int dprime) {
 		}
 
 		int clauseNumber = clauses.size();
-		clauses.push_back(Clause(clause));
+		clauses.emplace_back(clause);
 		clauses.back().setClauseNumber(clauseNumber);
 		addForcedLiteralToTrail(l0 , clauseNumber);
 
@@ -708,7 +711,7 @@ void Solver::learn(int dprime) {
 			// Set the watches for the new clause. 
 			auto& v0 = vfl(l0);
 			v0.addToWatch(clauseNumber, (l0 % 2) == 0);
-			int l1 = clause.at(1);
+			int l1 = clause[1];
 			auto& v1 = vfl(l1);
 			v1.addToWatch(clauseNumber, (l1 % 2) == 0);
 		}
@@ -755,7 +758,7 @@ void Solver::addDecisionVariableToTrail(int variableNumber) {
 		agility = agility - (agility >> 13) + (((variable.getOval() - variable.getValue()) & 1) << 19);
 		variable.setTloc(static_cast<int>(trail.size()));
 		variable.setReason(0);
-		trail.push_back(variable.getCurrentLiteralValue());
+		trail.emplace_back(variable.getCurrentLiteralValue());
 		E = trail.size();
 	}
 #ifdef DEBUG
@@ -777,11 +780,11 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 		agility = agility - (agility >> 13) + (((variable.getOval() - variable.getValue()) & 1) << 19);
 		variable.setTloc(static_cast<int>(trail.size()));
 		variable.setReason(reason);
-		trail.push_back(variable.getCurrentLiteralValue());
+		trail.emplace_back(variable.getCurrentLiteralValue());
 		E = trail.size();
 
 		// Let the clause know it is the reason for a literal. 
-		if (reason > 0) clauses.at(reason).setReasonFor(variable.getVariableNumber());
+		if (reason > 0) clauses[reason].setReasonFor(variable.getVariableNumber());
 	
 #ifdef DEBUG 
 
@@ -814,8 +817,8 @@ void Solver::addForcedLiteralToTrail(int literal, int reason) {
 
 
 // Convenience methods to get variable objects.
-Variable& Solver::vfl(int literal) { return variables.at(literal >> 1); }
-Variable& Solver::vfv(int variableNumber) { return variables.at(variableNumber); }
+Variable& Solver::vfl(int literal) { return variables[literal >> 1]; }
+Variable& Solver::vfv(int variableNumber) { return variables[variableNumber]; }
 
 void Solver::incrementStamp() {
 	stamp += 3;
@@ -846,7 +849,7 @@ void Solver::purgeProcessing() {
 		// If a conflict clause was recorded at depth 'd'.  
 		if (conflictClauseIndex > 0) {
 
-			auto& conflictClause = clauses.at(conflictClauseIndex);
+			auto& conflictClause = clauses[conflictClauseIndex];
 			auto& conflictClauseLiterals = conflictClause.getLiterals();
 
 			// Resolved conflict is stored in 'b' vector.
@@ -860,7 +863,7 @@ void Solver::purgeProcessing() {
 			}
 
 			// Save the 'b' vector for installation later.
-			if (dprime == minDprime) clausesToInstall.push_back(b);
+			if (dprime == minDprime) clausesToInstall.emplace_back(b);
 		}
 	}
 
@@ -880,7 +883,7 @@ void Solver::purgeProcessing() {
 	for (auto& x : LS) x = 0;
 	std::vector<int> m(256, 0);
 	for (int c = minl; c < clauses.size(); ++c) {
-		auto& clause = clauses.at(c);
+		auto& clause = clauses[c];
 
 		// If this clause is a reason for a literal it gets a score of zero.
 		if (clause.getReasonFor() != -1) clause.setRange(0);
@@ -909,7 +912,7 @@ void Solver::purgeProcessing() {
 			}
 			int a = (int) std::floor(16.0 * (p + clauseAlpha * (r - p)));
 			r = (int) std::min(a, 255);
-			m.at(r)++;
+			m[r]++;
 			clause.setRange(r);
 		}
 	}
@@ -921,8 +924,8 @@ void Solver::purgeProcessing() {
 	// their sum.
 	int sum = 0;
 	int j = 0;
-	while (sum <= T) sum += m.at(j++);
-	sum -= m.at(j - 1);
+	while (sum <= T) sum += m[j++];
+	sum -= m[j - 1];
 	int tieBreakers = T - sum;
 
 	// Purge clauses whose range is greater than or equal to j.
@@ -930,7 +933,7 @@ void Solver::purgeProcessing() {
 	for (int i = minl; i < clauses.size();) {
 		
 		// Get the clause at this index.
-		auto& proposedClause = clauses.at(i);
+		auto& proposedClause = clauses[i];
 
 		// Purge if range score too large.
 		if (proposedClause.getRange() >= j) {
@@ -940,12 +943,12 @@ void Solver::purgeProcessing() {
 
 			// Update moved clause so that it has the new clause number and
 			// inform the watched variables that the number is changed.
-			auto& newClause = clauses.at(i);
+			auto& newClause = clauses[i];
 			int originalClauseNumber = newClause.getClauseNumber();
 
 			auto& literals = newClause.getLiterals();
-			auto wl0 = literals.at(0);
-			auto wl1 = literals.at(1);
+			auto wl0 = literals[0];
+			auto wl1 = literals[1];
 			auto& wv0 = vfl(wl0);
 			auto& wv1 = vfl(wl1);
 
@@ -959,12 +962,12 @@ void Solver::purgeProcessing() {
 
 			// If the moved clause is a reason for a literal, update the reason property.
 			auto reasonFor = newClause.getReasonFor();
-			if (reasonFor != -1) variables.at(reasonFor).setReason(i);
+			if (reasonFor != -1) variables[reasonFor].setReason(i);
 			
 			auto& removedClause = clauses.back();
 			auto& removedClauseLiterals = removedClause.getLiterals();
-			int rl0 = removedClauseLiterals.at(0);
-			int rl1 = removedClauseLiterals.at(1);
+			int rl0 = removedClauseLiterals[0];
+			int rl1 = removedClauseLiterals[1];
 			auto& rv0 = vfl(rl0);
 			auto& rv1 = vfl(rl1);
 			rv0.removeFromWatch(i, !(rl0 & 1));
@@ -1045,7 +1048,7 @@ void Solver::flushProcessing() {
 
 		// !!!!!!!!!!!! Knuth's book does not mention any check for dprime not exceeding levels. Why does my code need it?
 		int dprime = 0;
-		while (dprime < (levels.size() -1) && vfl(trail.at(levels.at(dprime + 1))).getActivity() >= maxActivity) dprime++;
+		while (dprime < (levels.size() -1) && vfl(trail[levels[dprime + 1]]).getActivity() >= maxActivity) dprime++;
 		if (dprime < depth()) {
 			backjump(dprime);
 		}
@@ -1062,7 +1065,7 @@ bool Solver::bimpProcessing(int bl) {
 		int h = trail.size();
 
 		// Place all the forced literals on the trail.
-		for (int forced : bimp.at(bl)) {
+		for (int forced : bimp[bl]) {
 			bool conflict = takeAccountOf(forced, bl);
 
 			// Did a conflict occur?
@@ -1077,18 +1080,18 @@ bool Solver::bimpProcessing(int bl) {
 					return true;
 				}
 				else {
-					if (conflicts.at(d) == 0) conflicts.at(d) = bl ^ 1; // Correct? Don't use the conflict vector, right?
+					if (conflicts[d] == 0) conflicts[d] = bl ^ 1; // Correct? Don't use the conflict vector, right?
 				}
 			}
 		}
 
 		while (h < trail.size()) {
 
-			int bl = trail.at(h++);
+			int bl = trail[h++];
 
 			// For all the literals forced by the existence of "literal" on trail.
 			if (bimp.count(bl)) {
-				for (int forced : bimp.at(bl)) {
+				for (int forced : bimp[bl]) {
 
 					// Process the literal. A non-empty vector is returned if a conflict exists. 
 					bool conflict = takeAccountOf(forced, bl);
@@ -1105,7 +1108,7 @@ bool Solver::bimpProcessing(int bl) {
 							return true;
 						}
 						else {
-							if (conflicts.at(d) == 0) conflicts.at(d) = bl ^ 1; // Correct? bl or bl ^ 1?  Don't use the conflict vector, right?
+							if (conflicts[d] == 0) conflicts[d] = bl ^ 1; // Correct? bl or bl ^ 1?  Don't use the conflict vector, right?
 						}
 					}
 				}
